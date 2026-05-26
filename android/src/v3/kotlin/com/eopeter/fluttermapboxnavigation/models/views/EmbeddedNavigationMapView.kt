@@ -303,15 +303,23 @@ class EmbeddedNavigationMapView(
             .alternatives(arguments["alternatives"] as? Boolean ?: false)
             .build()
 
-        MapboxNavigationApp.current()?.requestRoutes(
+        val navigation = MapboxNavigationApp.current()
+        if (navigation == null) {
+            result.success(false)
+            return
+        }
+
+        navigation.requestRoutes(
             options,
             object : NavigationRouterCallback {
                 override fun onCanceled(routeOptions: RouteOptions, routerOrigin: String) {
                     sendEvent("route_build_cancelled")
+                    result.success(false)
                 }
 
                 override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
                     sendEvent("route_build_failed")
+                    result.success(false)
                 }
 
                 override fun onRoutesReady(
@@ -322,10 +330,10 @@ class EmbeddedNavigationMapView(
                     renderRoute(routes)
                     focusRoute(routes)
                     sendEvent("route_built")
+                    result.success(true)
                 }
             }
         )
-        result.success(true)
     }
 
     private fun startTripSession(

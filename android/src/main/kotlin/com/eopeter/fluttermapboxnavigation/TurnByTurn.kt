@@ -128,12 +128,16 @@ open class TurnByTurn(
         val isSilent = point["IsSilent"] as Boolean
         this.addedWaypoints.add(Waypoint(name, Point.fromLngLat(longitude, latitude),isSilent))
         }
-        this.getRoute(this.context)
-        result.success(true)
+        this.getRoute(this.context, result)
     }
 
-    private fun getRoute(context: Context) {
-        MapboxNavigationApp.current()!!.requestRoutes(
+    private fun getRoute(context: Context, result: MethodChannel.Result) {
+        val navigation = MapboxNavigationApp.current()
+        if (navigation == null) {
+            result.success(false)
+            return
+        }
+        navigation.requestRoutes(
             routeOptions = RouteOptions
                 .builder()
                 .applyDefaultNavigationOptions(navigationMode)
@@ -166,6 +170,7 @@ open class TurnByTurn(
                         this.infoPanelEndNavigationButtonBinder = 
                             CustomInfoPanelEndNavButtonBinder(activity)
                     }
+                    result.success(true)
                 }
 
                 override fun onFailure(
@@ -173,6 +178,7 @@ open class TurnByTurn(
                     routeOptions: RouteOptions
                 ) {
                     PluginUtilities.sendEvent(MapBoxEvents.ROUTE_BUILD_FAILED)
+                    result.success(false)
                 }
 
                 override fun onCanceled(
@@ -180,6 +186,7 @@ open class TurnByTurn(
                     routerOrigin: RouterOrigin
                 ) {
                     PluginUtilities.sendEvent(MapBoxEvents.ROUTE_BUILD_CANCELLED)
+                    result.success(false)
                 }
             }
         )
