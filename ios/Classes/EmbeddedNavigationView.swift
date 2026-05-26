@@ -21,6 +21,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     var selectedRouteIndex = 0
     var routeOptions: NavigationRouteOptions?
     var navigationService: NavigationService!
+    var voiceController: VoiceController?
 
     var _mapInitialized = false;
     var locationManager = CLLocationManager()
@@ -237,6 +238,14 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         routeOptions.distanceMeasurementSystem = _voiceUnits == "imperial" ? .imperial : .metric
         routeOptions.locale = Locale(identifier: _language)
         routeOptions.includesAlternativeRoutes = _alternatives
+        
+        let voiceEnabled = arguments?["voiceInstructionsEnabled"] as? Bool ?? true
+        let bannerEnabled = arguments?["bannerInstructionsEnabled"] as? Bool ?? true
+        
+        routeOptions.steps = true
+        routeOptions.voiceInstructions = voiceEnabled
+        routeOptions.bannerInstructions = bannerEnabled
+        
         self.routeOptions = routeOptions
 
         // Generate the route object and draw it on the map
@@ -266,6 +275,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         let navigationViewportDataSource = NavigationViewportDataSource(navigationMapView.mapView)
         navigationViewportDataSource.options.followingCameraOptions.zoomUpdatesAllowed = false
         navigationViewportDataSource.followingMobileCamera.zoom = _zoom
+        navigationViewportDataSource.followingMobileCamera.padding = _padding
         navigationMapView.navigationCamera.viewportDataSource = navigationViewportDataSource
         result(true)
     }
@@ -352,10 +362,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
 
         let navigationViewportDataSource = NavigationViewportDataSource(navigationMapView.mapView, viewportDataSourceType: .raw)
         navigationViewportDataSource.options.followingCameraOptions.zoomUpdatesAllowed = false
-        navigationViewportDataSource.followingMobileCamera.zoom = 13.0
-        navigationViewportDataSource.followingMobileCamera.pitch = 15
-        navigationViewportDataSource.followingMobileCamera.padding = .zero
-        //navigationViewportDataSource.followingMobileCamera.center = mapView?.centerCoordinate
+        navigationViewportDataSource.followingMobileCamera.zoom = _zoom
+        navigationViewportDataSource.followingMobileCamera.bearing = _bearing
+        navigationViewportDataSource.followingMobileCamera.pitch = _tilt > 0 ? _tilt : 15
+        navigationViewportDataSource.followingMobileCamera.padding = _padding
         navigationMapView.navigationCamera.viewportDataSource = navigationViewportDataSource
 
         // Create a camera that rotates around the same center point, rotating 180°.
@@ -392,6 +402,20 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
                 _eventSink = nil
             }
         }
+    }
+
+    public func navigationService(_ service: NavigationService, didPass spokenInstruction: SpokenInstruction, routeProgress: RouteProgress) {
+        sendEvent(eventType: MapBoxEventType.speech_announcement, data: spokenInstruction.text)
+        
+        let voiceEnabled = arguments?["voiceInstructionsEnabled"] as? Bool ?? true
+        if (voiceEnabled) {
+            voiceController?.play(spokenInstruction)
+        }
+    }
+
+    public func navigationService(_ service: NavigationService, didArriveAt waypoint: Waypoint) -> Bool {
+        sendEvent(eventType: MapBoxEventType.on_arrival)
+        return true
     }
 }
 

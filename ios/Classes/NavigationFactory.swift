@@ -40,6 +40,9 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     var _showReportFeedbackButton = true
     var _showEndOfRouteFeedback = true
     var _enableOnMapTapCallback = false
+    var _voiceEnabled = true
+    var _bannerEnabled = true
+    var _padding: UIEdgeInsets = .zero
     var navigationDirections: Directions?
     
     func addWayPoints(arguments: NSDictionary?, result: @escaping FlutterResult)
@@ -205,6 +208,9 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         
         options.distanceMeasurementSystem = _voiceUnits == "imperial" ? .imperial : .metric
         options.locale = Locale(identifier: _language)
+        options.steps = true
+        options.voiceInstructions = _voiceEnabled
+        options.bannerInstructions = _bannerEnabled
         _options = options
     }
     
@@ -218,6 +224,8 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         _showReportFeedbackButton = arguments?["showReportFeedbackButton"] as? Bool ?? _showReportFeedbackButton
         _showEndOfRouteFeedback = arguments?["showEndOfRouteFeedback"] as? Bool ?? _showEndOfRouteFeedback
         _enableOnMapTapCallback = arguments?["enableOnMapTapCallback"] as? Bool ?? _enableOnMapTapCallback
+        _voiceEnabled = arguments?["voiceInstructionsEnabled"] as? Bool ?? true
+        _bannerEnabled = arguments?["bannerInstructionsEnabled"] as? Bool ?? true
         _mapStyleUrlDay = arguments?["mapStyleUrlDay"] as? String
         _mapStyleUrlNight = arguments?["mapStyleUrlNight"] as? String
         _zoom = arguments?["zoom"] as? Double ?? _zoom
@@ -226,6 +234,10 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         _animateBuildRoute = arguments?["animateBuildRoute"] as? Bool ?? _animateBuildRoute
         _longPressDestinationEnabled = arguments?["longPressDestinationEnabled"] as? Bool ?? _longPressDestinationEnabled
         _alternatives = arguments?["alternatives"] as? Bool ?? _alternatives
+        
+        if let padding = arguments?["padding"] as? [Double], padding.count == 4 {
+            _padding = UIEdgeInsets(top: CGFloat(padding[0]), left: CGFloat(padding[1]), bottom: CGFloat(padding[2]), right: CGFloat(padding[3]))
+        }
     }
     
     
@@ -412,6 +424,10 @@ extension NavigationFactory : NavigationViewControllerDelegate {
                 _eventSink = nil
             }
         }
+    }
+    
+    public func navigationViewController(_ navigationViewController: NavigationViewController, didPass spokenInstruction: SpokenInstruction, routeProgress: RouteProgress) {
+        sendEvent(eventType: MapBoxEventType.speech_announcement, data: spokenInstruction.text)
     }
     
     public func navigationViewController(_ navigationViewController: NavigationViewController, didArriveAt waypoint: Waypoint) -> Bool {

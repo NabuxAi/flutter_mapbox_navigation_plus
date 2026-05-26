@@ -20,5 +20,8 @@ enum MapBoxEvent {
   on_arrival,
   failed_to_reroute,
   reroute_along,
-  on_map_tap
+  on_map_tap,
+  standardPoiTapped,
+  standardBuildingTapped,
+  mapStyleLoaded
 }

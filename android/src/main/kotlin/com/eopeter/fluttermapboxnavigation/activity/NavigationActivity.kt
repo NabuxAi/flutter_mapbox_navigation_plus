@@ -46,6 +46,8 @@ import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.OffRouteObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
 import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
+import com.mapbox.navigation.voice.api.MapboxSpeechPlayer
+import com.mapbox.navigation.voice.api.MapboxVoiceInstructionsPlayer
 import com.mapbox.navigation.dropin.map.MapViewObserver
 import com.mapbox.navigation.dropin.navigationview.NavigationViewListener
 import com.mapbox.navigation.utils.internal.ifNonNull
@@ -59,6 +61,9 @@ class NavigationActivity : AppCompatActivity() {
     private var accessToken: String? = null
     private var lastLocation: Location? = null
     private var isNavigationInProgress = false
+
+    private var speechPlayer: MapboxSpeechPlayer? = null
+    private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
 
     private val navigationStateListener = object : NavigationViewListener() {
         override fun onFreeDrive() {
@@ -84,6 +89,7 @@ class NavigationActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setTheme(androidx.appcompat.R.style.Theme_AppCompat_NoActionBar)
         binding = NavigationActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -100,10 +106,51 @@ class NavigationActivity : AppCompatActivity() {
             .setup(navigationOptions)
             .attach(this)
 
+        speechPlayer = MapboxSpeechPlayer(this.applicationContext, accessToken!!, FlutterMapboxNavigationPlugin.navigationLanguage)
+        voiceInstructionsPlayer = MapboxVoiceInstructionsPlayer(
+            this.applicationContext,
+            accessToken!!,
+            FlutterMapboxNavigationPlugin.navigationLanguage
+        )
+
         if (FlutterMapboxNavigationPlugin.longPressDestinationEnabled) {
             binding.navigationView.registerMapObserver(onMapLongClick)
             binding.navigationView.customizeViewOptions {
                 enableMapLongClickIntercept = false
+                
+                mapStyleUriDay = FlutterMapboxNavigationPlugin.mapStyleUrlDay
+                mapStyleUriNight = FlutterMapboxNavigationPlugin.mapStyleUrlNight
+                voiceInstructionsEnabled = FlutterMapboxNavigationPlugin.voiceInstructionsEnabled
+                bannerInstructionsEnabled = FlutterMapboxNavigationPlugin.bannerInstructionsEnabled
+
+                val padding = FlutterMapboxNavigationPlugin.padding
+                if (padding != null && padding.size == 4) {
+                    val density = resources.displayMetrics.density
+                    val top = padding[0] * density
+                    val left = padding[1] * density
+                    val bottom = padding[2] * density
+                    val right = padding[3] * density
+                    followingPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+                    overviewPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+                }
+            }
+        } else {
+            binding.navigationView.customizeViewOptions {
+                mapStyleUriDay = FlutterMapboxNavigationPlugin.mapStyleUrlDay
+                mapStyleUriNight = FlutterMapboxNavigationPlugin.mapStyleUrlNight
+                voiceInstructionsEnabled = FlutterMapboxNavigationPlugin.voiceInstructionsEnabled
+                bannerInstructionsEnabled = FlutterMapboxNavigationPlugin.bannerInstructionsEnabled
+
+                val padding = FlutterMapboxNavigationPlugin.padding
+                if (padding != null && padding.size == 4) {
+                    val density = resources.displayMetrics.density
+                    val top = padding[0] * density
+                    val left = padding[1] * density
+                    val bottom = padding[2] * density
+                    val right = padding[3] * density
+                    followingPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+                    overviewPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+                }
             }
         }
 
@@ -146,15 +193,27 @@ class NavigationActivity : AppCompatActivity() {
             }
         }
 
-        registerReceiver(
-            finishBroadcastReceiver,
-            IntentFilter(NavigationLauncher.KEY_STOP_NAVIGATION)
-        )
-
-        registerReceiver(
-            addWayPointsBroadcastReceiver,
-            IntentFilter(NavigationLauncher.KEY_ADD_WAYPOINTS)
-        )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                finishBroadcastReceiver,
+                IntentFilter(NavigationLauncher.KEY_STOP_NAVIGATION),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+            registerReceiver(
+                addWayPointsBroadcastReceiver,
+                IntentFilter(NavigationLauncher.KEY_ADD_WAYPOINTS),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(
+                finishBroadcastReceiver,
+                IntentFilter(NavigationLauncher.KEY_STOP_NAVIGATION)
+            )
+            registerReceiver(
+                addWayPointsBroadcastReceiver,
+                IntentFilter(NavigationLauncher.KEY_ADD_WAYPOINTS)
+            )
+        }
 
         // TODO set the style Uri
         var styleUrlDay = FlutterMapboxNavigationPlugin.mapStyleUrlDay
@@ -185,12 +244,22 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        tryCancelNavigation()
+
+        try {
+            isNavigationInProgress = false
+            MapboxNavigationApp.current()?.stopTripSession()
+        } catch (e: Exception) {
+            // Ignore
+        }
+
         if (FlutterMapboxNavigationPlugin.longPressDestinationEnabled) {
             binding.navigationView.unregisterMapObserver(onMapLongClick)
         }
-        if (FlutterMapboxNavigationPlugin.enableOnMapTapCallback) {
+        try {
             binding.navigationView.unregisterMapObserver(onMapClick)
+        } catch (e: Exception) {
+            // Ignore
         }
         binding.navigationView.removeListener(navigationStateListener)
 
@@ -200,7 +269,25 @@ class NavigationActivity : AppCompatActivity() {
         MapboxNavigationApp.current()?.unregisterRoutesObserver(this.routesObserver)
         MapboxNavigationApp.current()?.unregisterLocationObserver(locationObserver)
         MapboxNavigationApp.current()?.unregisterRouteProgressObserver(routeProgressObserver)
-        MapboxNavigationApp.current()?.unregisterArrivalObserver(arrivalObserver)
+        MapboxNavigationApp.current()?.unregisterArrivalObserver(this.arrivalObserver)
+
+        speechPlayer?.onDestroy()
+        voiceInstructionsPlayer?.onDestroy()
+
+        try {
+            unregisterReceiver(finishBroadcastReceiver)
+            unregisterReceiver(addWayPointsBroadcastReceiver)
+        } catch (e: Exception) {
+            // Ignore if not registered
+        }
+
+        try {
+            MapboxNavigationApp.detach(this)
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        super.onDestroy()
     }
 
     fun tryCancelNavigation() {
@@ -398,7 +485,10 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     private val voiceInstructionObserver = VoiceInstructionsObserver { voiceInstructions ->
-        sendEvent(MapBoxEvents.SPEECH_ANNOUNCEMENT, voiceInstructions.announcement().toString())
+        sendEvent(MapBoxEvents.SPEECH_ANNOUNCEMENT, voiceInstructions.announcement())
+        if (FlutterMapboxNavigationPlugin.voiceInstructionsEnabled) {
+            voiceInstructionsPlayer?.play(voiceInstructions)
+        }
     }
 
     private val offRouteObserver = OffRouteObserver { offRoute ->

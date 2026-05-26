@@ -16,9 +16,7 @@ class RouteEvent {
     try {
       eventType = MapBoxEvent.values
           .firstWhere((e) => e.toString().split('.').last == json['eventType']);
-    } catch (e) {
-      // TODO handle the error
-    }
+    } catch (_) {}
 
     final dataJson = json['data'];
     if (eventType == MapBoxEvent.progress_change) {
@@ -31,6 +29,9 @@ class RouteEvent {
       final json =
           Platform.isAndroid ? dataJson : jsonDecode(dataJson as String);
       data = WayPoint.fromJson(json as Map<String, dynamic>);
+    } else if (eventType == MapBoxEvent.standardPoiTapped ||
+        eventType == MapBoxEvent.standardBuildingTapped) {
+      data = dataJson as Map<String, dynamic>?;
     } else {
       data = jsonEncode(dataJson);
     }

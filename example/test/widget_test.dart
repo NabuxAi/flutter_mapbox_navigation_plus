@@ -6,8 +6,11 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_mapbox_navigation_example/app.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Relative import keeps this nested example analyzable from the monorepo root.
+// ignore: avoid_relative_lib_imports
+import '../lib/app.dart';
 
 void main() {
   testWidgets('Verify Platform version', (WidgetTester tester) async {

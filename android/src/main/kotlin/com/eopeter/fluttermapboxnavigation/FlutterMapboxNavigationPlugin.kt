@@ -20,6 +20,8 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.platform.PlatformViewRegistry
+import org.json.JSONObject
+import java.util.HashMap
 
 /** FlutterMapboxNavigationPlugin */
 class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
@@ -67,6 +69,7 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
         var navigationVoiceUnits = DirectionsCriteria.IMPERIAL
         var voiceInstructionsEnabled = true
         var bannerInstructionsEnabled = true
+        var padding: List<Double>? = null
         var zoom = 15.0
         var bearing = 0.0
         var tilt = 0.0
@@ -76,6 +79,16 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
         var binaryMessenger: BinaryMessenger? = null
 
         var viewId = "FlutterMapboxNavigationView"
+
+        fun sendEvent(eventType: String, data: String? = null) {
+            val payload = mutableMapOf<String, Any>()
+            payload["eventType"] = eventType
+            if (data != null) {
+                payload["data"] = data
+            }
+            val json = JSONObject(payload as Map<String, Any>).toString()
+            eventSink?.success(json)
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
@@ -103,49 +116,20 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
             "finishNavigation" -> {
                 NavigationLauncher.stopNavigation(currentActivity)
             }
-            "enableOfflineRouting" -> {
-                downloadRegionForOfflineRouting(call, result)
+            else -> {
+                result.notImplemented()
             }
-            else -> result.notImplemented()
         }
     }
 
-    private fun downloadRegionForOfflineRouting(
-        call: MethodCall,
-        result: Result
-    ) {
-        result.error("TODO", "Not Implemented in Android", "will implement soon")
-    }
-
-    private fun checkPermissionAndBeginNavigation(
-        call: MethodCall
-    ) {
+    private fun checkPermissionAndBeginNavigation(call: MethodCall) {
         val arguments = call.arguments as? Map<String, Any>
+        parseArguments(arguments)
+    }
 
-        val navMode = arguments?.get("mode") as? String
-        if (navMode != null) {
-            when (navMode) {
-                "walking" -> navigationMode = DirectionsCriteria.PROFILE_WALKING
-                "cycling" -> navigationMode = DirectionsCriteria.PROFILE_CYCLING
-                "driving" -> navigationMode = DirectionsCriteria.PROFILE_DRIVING
-            }
-        }
-
-        val alternateRoutes = arguments?.get("alternatives") as? Boolean
-        if (alternateRoutes != null) {
-            showAlternateRoutes = alternateRoutes
-        }
-
-        val simulated = arguments?.get("simulateRoute") as? Boolean
-        if (simulated != null) {
-            simulateRoute = simulated
-        }
-
-        val allowsUTurns = arguments?.get("allowsUTurnsAtWayPoints") as? Boolean
-        if (allowsUTurns != null) {
-            allowsUTurnsAtWayPoints = allowsUTurns
-        }
-
+    private fun parseArguments(arguments: Map<String, Any>?) {
+        showAlternateRoutes = arguments?.get("alternatives") as? Boolean ?: true
+        allowsUTurnsAtWayPoints = arguments?.get("allowsUTurnAtWayPoints") as? Boolean ?: false
         val onMapTap = arguments?.get("enableOnMapTapCallback") as? Boolean
         if (onMapTap != null) {
             enableOnMapTapCallback = onMapTap
@@ -164,6 +148,11 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
         val bannerEnabled = arguments?.get("bannerInstructionsEnabled") as? Boolean
         if (bannerEnabled != null) {
             bannerInstructionsEnabled = bannerEnabled
+        }
+
+        val paddingList = arguments?.get("padding") as? List<Double>
+        if (paddingList != null) {
+            padding = paddingList
         }
 
         val units = arguments?.get("units") as? String
@@ -250,14 +239,14 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
         eventSink = null
     }
 
-    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        currentActivity = null
-        channel.setMethodCallHandler(null)
-        progressEventChannel.setStreamHandler(null)
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        currentActivity = binding.activity
+        currentContext = binding.activity.applicationContext
+        val factory = EmbeddedNavigationViewFactory(binding.activity, binaryMessenger!!)
+        platformViewRegistry?.registerViewFactory("FlutterMapboxNavigationView", factory)
     }
 
-    override fun onDetachedFromActivity() {
-        currentActivity!!.finish()
+    override fun onDetachedFromActivityForConfigChanges() {
         currentActivity = null
     }
 
@@ -265,49 +254,12 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
         currentActivity = binding.activity
     }
 
-    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        currentActivity = binding.activity
-        currentContext = binding.activity.applicationContext
-        if (platformViewRegistry != null && binaryMessenger != null && currentActivity != null) {
-            platformViewRegistry?.registerViewFactory(
-                viewId,
-                EmbeddedNavigationViewFactory(binaryMessenger!!, currentActivity!!)
-            )
-        }
+    override fun onDetachedFromActivity() {
+        currentActivity = null
     }
 
-    override fun onDetachedFromActivityForConfigChanges() {
-        // To change body of created functions use File | Settings | File Templates.
-    }
-
-    fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        when (requestCode) {
-            367 -> {
-                for (permission in permissions) {
-                    if (permission == Manifest.permission.ACCESS_FINE_LOCATION) {
-                        val haspermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            currentActivity?.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                        } else {
-                            TODO("VERSION.SDK_INT < M")
-                        }
-                        if (haspermission == PackageManager.PERMISSION_GRANTED) {
-                            if (wayPoints.isNotEmpty())
-                                beginNavigation(wayPoints)
-                        }
-                        // Not all permissions granted. Show some message and return.
-                        return
-                    }
-                }
-
-                // All permissions are granted. Do the work accordingly.
-            }
-        }
-        // super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        channel.setMethodCallHandler(null)
+        progressEventChannel.setStreamHandler(null)
     }
 }
-
-private const val MAPBOX_ACCESS_TOKEN_PLACEHOLDER = "YOUR_MAPBOX_ACCESS_TOKEN_GOES_HERE"

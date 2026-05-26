@@ -34,6 +34,12 @@ class MapBoxOptions {
     this.showReportFeedbackButton = true,
     this.showEndOfRouteFeedback = true,
     this.enableOnMapTapCallback = false,
+    this.standardInteractionsEnabled = false,
+    this.standardBuildingColor = 'red',
+    this.standardLightPreset = 'dusk',
+    this.standardTheme = 'faded',
+    this.hidePoiOnTap = false,
+    this.accessToken,
   });
 
   MapBoxOptions.from(MapBoxOptions option) {
@@ -59,6 +65,13 @@ class MapBoxOptions {
     animateBuildRoute = option.animateBuildRoute;
     showReportFeedbackButton = option.showReportFeedbackButton;
     showEndOfRouteFeedback = option.showEndOfRouteFeedback;
+    enableOnMapTapCallback = option.enableOnMapTapCallback;
+    standardInteractionsEnabled = option.standardInteractionsEnabled;
+    standardBuildingColor = option.standardBuildingColor;
+    standardLightPreset = option.standardLightPreset;
+    standardTheme = option.standardTheme;
+    hidePoiOnTap = option.hidePoiOnTap;
+    accessToken = option.accessToken;
   }
 
   /// The initial Latitude of the Map View
@@ -167,6 +180,24 @@ class MapBoxOptions {
   /// to where you tap on the map.
   bool? enableOnMapTapCallback;
 
+  /// Enables Mapbox Standard style interactions when supported by native SDKs.
+  bool? standardInteractionsEnabled;
+
+  /// Building highlight color used by Mapbox Standard interactions.
+  String? standardBuildingColor;
+
+  /// Standard style light preset, for example day, dusk, dawn, or night.
+  String? standardLightPreset;
+
+  /// Standard style theme, for example default, faded, or monochrome.
+  String? standardTheme;
+
+  /// Hides the tapped POI when supported by the native Standard style runtime.
+  bool? hidePoiOnTap;
+
+  /// Mapbox Access Token
+  String? accessToken;
+
   Map<String, dynamic> toMap() {
     final optionsMap = <String, dynamic>{};
     void addIfNonNull(String fieldName, dynamic value) {
@@ -224,6 +255,12 @@ class MapBoxOptions {
     addIfNonNull('showReportFeedbackButton', showReportFeedbackButton);
     addIfNonNull('showEndOfRouteFeedback', showEndOfRouteFeedback);
     addIfNonNull('enableOnMapTapCallback', enableOnMapTapCallback);
+    addIfNonNull('standardInteractionsEnabled', standardInteractionsEnabled);
+    addIfNonNull('standardBuildingColor', standardBuildingColor);
+    addIfNonNull('standardLightPreset', standardLightPreset);
+    addIfNonNull('standardTheme', standardTheme);
+    addIfNonNull('hidePoiOnTap', hidePoiOnTap);
+    addIfNonNull('accessToken', accessToken);
 
     return optionsMap;
   }

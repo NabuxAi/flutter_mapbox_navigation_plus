@@ -33,6 +33,12 @@ import com.mapbox.navigation.core.arrival.ArrivalObserver
 import com.mapbox.navigation.core.directions.session.RoutesObserver
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.trip.session.*
+import com.mapbox.navigation.voice.api.MapboxSpeechPlayer
+import com.mapbox.navigation.voice.api.MapboxVoiceInstructionsPlayer
+import com.mapbox.navigation.voice.model.SpeechAnnouncement
+import com.mapbox.navigation.voice.model.SpeechError
+import com.mapbox.navigation.voice.model.SpeechValue
+import com.mapbox.navigation.voice.model.SpeechValueContext
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -60,6 +66,13 @@ open class TurnByTurn(
         MapboxNavigationApp
             .setup(navigationOptions)
             .attach(this.activity as LifecycleOwner)
+
+        speechPlayer = MapboxSpeechPlayer(this.context, this.token, navigationLanguage)
+        voiceInstructionsPlayer = MapboxVoiceInstructionsPlayer(
+            this.context,
+            this.token,
+            navigationLanguage
+        )
 
         // initialize navigation trip observers
         this.registerObservers()
@@ -302,11 +315,28 @@ open class TurnByTurn(
         val voiceEnabled = arguments["voiceInstructionsEnabled"] as? Boolean
         if (voiceEnabled != null) {
             this.voiceInstructionsEnabled = voiceEnabled
+            this.binding.navigationView.customizeViewOptions {
+                voiceInstructionsEnabled = voiceEnabled
+            }
         }
 
         val bannerEnabled = arguments["bannerInstructionsEnabled"] as? Boolean
         if (bannerEnabled != null) {
             this.bannerInstructionsEnabled = bannerEnabled
+        }
+
+        val padding = arguments["padding"] as? List<*>
+        if (padding != null && padding.size == 4) {
+            val density = context.resources.displayMetrics.density
+            val top = (padding[0] as? Double ?: 0.0) * density
+            val left = (padding[1] as? Double ?: 0.0) * density
+            val bottom = (padding[2] as? Double ?: 0.0) * density
+            val right = (padding[3] as? Double ?: 0.0) * density
+
+            this.binding.navigationView.customizeViewOptions {
+                followingPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+                overviewPadding = com.mapbox.maps.EdgeInsets(top, left, bottom, right)
+            }
         }
 
         val longPress = arguments["longPressDestinationEnabled"] as? Boolean
@@ -340,6 +370,9 @@ open class TurnByTurn(
         MapboxNavigationApp.current()?.unregisterLocationObserver(this.locationObserver)
         MapboxNavigationApp.current()?.unregisterRouteProgressObserver(this.routeProgressObserver)
         MapboxNavigationApp.current()?.unregisterArrivalObserver(this.arrivalObserver)
+        
+        speechPlayer?.onDestroy()
+        voiceInstructionsPlayer?.onDestroy()
     }
 
     // Flutter stream listener delegate methods
@@ -357,6 +390,9 @@ open class TurnByTurn(
     open var methodChannel: MethodChannel? = null
     open var eventChannel: EventChannel? = null
     private var lastLocation: Location? = null
+
+    private var speechPlayer: MapboxSpeechPlayer? = null
+    private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
 
     /**
      * Helper class that keeps added waypoints and transforms them to the [RouteOptions] params.
@@ -420,7 +456,10 @@ open class TurnByTurn(
     }
 
     private val voiceInstructionObserver = VoiceInstructionsObserver { voiceInstructions ->
-        PluginUtilities.sendEvent(MapBoxEvents.SPEECH_ANNOUNCEMENT, voiceInstructions.announcement().toString())
+        PluginUtilities.sendEvent(MapBoxEvents.SPEECH_ANNOUNCEMENT, voiceInstructions.announcement())
+        if (this.voiceInstructionsEnabled) {
+            voiceInstructionsPlayer?.play(voiceInstructions)
+        }
     }
 
     private val offRouteObserver = OffRouteObserver { offRoute ->
