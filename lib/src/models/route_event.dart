@@ -30,7 +30,8 @@ class RouteEvent {
           Platform.isAndroid ? dataJson : jsonDecode(dataJson as String);
       data = WayPoint.fromJson(json as Map<String, dynamic>);
     } else if (eventType == MapBoxEvent.standardPoiTapped ||
-        eventType == MapBoxEvent.standardBuildingTapped) {
+        eventType == MapBoxEvent.standardBuildingTapped ||
+        eventType == MapBoxEvent.camera_state_changed) {
       data = dataJson as Map<String, dynamic>?;
     } else {
       data = jsonEncode(dataJson);

@@ -33,6 +33,12 @@ class MapBoxNavigationViewController {
       .invokeMethod('getPlatformVersion')
       .then((dynamic result) => result as String);
 
+  /// Check if the package is using Mapbox SDK V3 natively
+  Future<bool> get isV3 => _methodChannel
+      .invokeMethod('isV3')
+      .then((dynamic result) => result as bool? ?? false)
+      .catchError((_) => false);
+
   ///Total distance remaining in meters along route.
   Future<double> get distanceRemaining => _methodChannel
       .invokeMethod<double>('getDistanceRemaining')
@@ -124,6 +130,22 @@ class MapBoxNavigationViewController {
   Future<bool?> finishNavigation() async {
     final success = await _methodChannel.invokeMethod('finishNavigation', null);
     return success as bool?;
+  }
+
+  /// Recenter the navigation camera to following mode.
+  Future<bool> recenter() async {
+    return _methodChannel
+        .invokeMethod<bool>('recenter')
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Toggle or set voice instructions state.
+  /// If [enabled] is null, it toggles the current state.
+  /// Returns the new state.
+  Future<bool> toggleVoiceInstructions([bool? enabled]) async {
+    return _methodChannel
+        .invokeMethod<bool>('toggleVoiceInstructions', enabled)
+        .then((dynamic result) => result as bool? ?? false);
   }
 
   /// Generic Handler for Messages sent from the Platform

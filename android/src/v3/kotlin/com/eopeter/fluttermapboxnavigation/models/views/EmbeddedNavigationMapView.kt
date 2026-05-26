@@ -93,6 +93,7 @@ class EmbeddedNavigationMapView(
     private var distanceRemaining: Float? = null
     private var durationRemaining: Double? = null
     private var currentStyle: Style? = null
+    private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
 
     private var speechApi: MapboxSpeechApi? = null
     private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
@@ -115,8 +116,7 @@ class EmbeddedNavigationMapView(
 
     private val voiceInstructionObserver = VoiceInstructionsObserver { voiceInstructions ->
         sendEvent("speech_announcement", voiceInstructions.announcement())
-        val voiceEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
-        if (voiceEnabled) {
+        if (voiceInstructionsEnabled) {
             speechApi?.generate(voiceInstructions, speechCallback)
         }
     }
@@ -191,6 +191,7 @@ class EmbeddedNavigationMapView(
         initializeNavigationSdk(context)
         loadInitialStyle()
         registerMapTap()
+        registerMoveGesture()
     }
 
     override fun getView(): View = root
@@ -221,9 +222,27 @@ class EmbeddedNavigationMapView(
         eventSink = null
     }
 
+    private fun registerMoveGesture() {
+        mapView.gestures.addOnMoveListener(object : com.mapbox.maps.plugin.gestures.OnMoveListener {
+            override fun onMoveBegin(detector: com.mapbox.android.gestures.MoveGestureDetector): Boolean {
+                navigationCamera.requestNavigationCameraToIdle()
+                sendEvent("camera_state_changed", mapOf("state" to "idle"))
+                return false
+            }
+
+            override fun onMove(detector: com.mapbox.android.gestures.MoveGestureDetector): Boolean {
+                return false
+            }
+
+            override fun onMoveEnd(detector: com.mapbox.android.gestures.MoveGestureDetector) {
+            }
+        })
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getPlatformVersion" -> result.success("Android ${android.os.Build.VERSION.RELEASE}")
+            "isV3" -> result.success(true)
             "initialize" -> {
                 sendEvent("map_ready")
                 result.success(true)
@@ -272,6 +291,22 @@ class EmbeddedNavigationMapView(
                 MapboxNavigationApp.current()?.stopTripSession()
                 sendEvent("navigation_cancelled")
                 result.success(true)
+            }
+            "getDistanceRemaining" -> {
+                result.success(distanceRemaining?.toDouble() ?: 0.0)
+            }
+            "getDurationRemaining" -> {
+                result.success(durationRemaining ?: 0.0)
+            }
+            "recenter" -> {
+                navigationCamera.requestNavigationCameraToFollowing()
+                sendEvent("camera_state_changed", mapOf("state" to "following"))
+                result.success(true)
+            }
+            "toggleVoiceInstructions" -> {
+                val enabled = call.arguments as? Boolean ?: !voiceInstructionsEnabled
+                voiceInstructionsEnabled = enabled
+                result.success(enabled)
             }
             else -> result.notImplemented()
         }

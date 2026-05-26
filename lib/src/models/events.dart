@@ -23,5 +23,6 @@ enum MapBoxEvent {
   on_map_tap,
   standardPoiTapped,
   standardBuildingTapped,
-  mapStyleLoaded
+  mapStyleLoaded,
+  camera_state_changed
 }
