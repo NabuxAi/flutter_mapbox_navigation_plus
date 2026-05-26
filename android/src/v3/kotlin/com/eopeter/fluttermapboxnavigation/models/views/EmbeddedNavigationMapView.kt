@@ -37,6 +37,8 @@ import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
 import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
 import com.mapbox.navigation.core.trip.session.BannerInstructionsObserver
+import com.mapbox.navigation.core.trip.session.OffRouteObserver
+import com.mapbox.navigation.core.directions.session.RoutesObserver
 import com.mapbox.navigation.voice.api.MapboxSpeechApi
 import com.mapbox.navigation.voice.api.MapboxVoiceInstructionsPlayer
 import com.mapbox.navigation.voice.model.SpeechAnnouncement
@@ -146,6 +148,21 @@ class EmbeddedNavigationMapView(
         override fun onWaypointArrival(routeProgress: RouteProgress) = Unit
     }
 
+    private val offRouteObserver = OffRouteObserver { offRoute ->
+        if (offRoute) {
+            sendEvent("user_off_route")
+        }
+    }
+
+    private val routesObserver = RoutesObserver { routeUpdateResult ->
+        if (routeUpdateResult.navigationRoutes.isNotEmpty()) {
+            sendEvent("reroute_along")
+            val routes = routeUpdateResult.navigationRoutes
+            currentRoutes = routes
+            renderRoute(routes)
+        }
+    }
+
     private val routeProgressObserver = RouteProgressObserver { routeProgress ->
         distanceRemaining = routeProgress.distanceRemaining
         durationRemaining = routeProgress.durationRemaining
@@ -203,6 +220,8 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterRouteProgressObserver(routeProgressObserver)
         MapboxNavigationApp.current()?.unregisterVoiceInstructionsObserver(voiceInstructionObserver)
         MapboxNavigationApp.current()?.unregisterBannerInstructionsObserver(bannerInstructionObserver)
+        MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
+        MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
         MapboxNavigationApp.current()?.stopTripSession()
         speechApi?.cancel()
         voiceInstructionsPlayer?.shutdown()
@@ -224,10 +243,9 @@ class EmbeddedNavigationMapView(
 
     private fun registerMoveGesture() {
         mapView.gestures.addOnMoveListener(object : com.mapbox.maps.plugin.gestures.OnMoveListener {
-            override fun onMoveBegin(detector: com.mapbox.android.gestures.MoveGestureDetector): Boolean {
+            override fun onMoveBegin(detector: com.mapbox.android.gestures.MoveGestureDetector) {
                 navigationCamera.requestNavigationCameraToIdle()
                 sendEvent("camera_state_changed", mapOf("state" to "idle"))
-                return false
             }
 
             override fun onMove(detector: com.mapbox.android.gestures.MoveGestureDetector): Boolean {
@@ -542,6 +560,10 @@ class EmbeddedNavigationMapView(
             ?.registerVoiceInstructionsObserver(voiceInstructionObserver)
         MapboxNavigationApp.current()
             ?.registerBannerInstructionsObserver(bannerInstructionObserver)
+        MapboxNavigationApp.current()
+            ?.registerOffRouteObserver(offRouteObserver)
+        MapboxNavigationApp.current()
+            ?.registerRoutesObserver(routesObserver)
     }
 
     private fun sendEvent(eventType: String, data: Any? = null) {
