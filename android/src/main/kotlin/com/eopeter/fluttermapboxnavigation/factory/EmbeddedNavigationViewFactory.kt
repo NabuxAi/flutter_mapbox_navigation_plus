@@ -19,7 +19,10 @@ class EmbeddedNavigationViewFactory(
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         val inflater = LayoutInflater.from(context)
         val binding = NavigationActivityBinding.inflate(inflater)
-        val accessToken = PluginUtilities.getResourceFromContext(context, "mapbox_access_token")
+        val arguments = args as? Map<*, *>
+        val providedAccessToken = (arguments?.get("accessToken") as? String)?.trim()
+        val accessToken = providedAccessToken?.takeIf { it.isNotEmpty() }
+            ?: PluginUtilities.getResourceFromContext(context, "mapbox_access_token")
         val view = EmbeddedNavigationMapView(
             context,
             activity,

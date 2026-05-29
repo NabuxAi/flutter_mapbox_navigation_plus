@@ -60,6 +60,8 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.platform.PlatformView
 import org.json.JSONObject
 import java.util.Locale
+import com.mapbox.navigation.ui.maps.location.NavigationLocationProvider
+import com.mapbox.maps.plugin.locationcomponent.location
 
 class EmbeddedNavigationMapView(
     context: Context,
@@ -75,6 +77,7 @@ class EmbeddedNavigationMapView(
     private val events = EventChannel(messenger, "flutter_mapbox_navigation/$viewId/events")
     private val options = (args as? Map<*, *>) ?: emptyMap<String, Any>()
     private val viewportDataSource = MapboxNavigationViewportDataSource(mapView.mapboxMap)
+    private val navigationLocationProvider = NavigationLocationProvider()
     private val navigationCamera = NavigationCamera(
         mapView.mapboxMap,
         mapView.camera,
@@ -135,8 +138,13 @@ class EmbeddedNavigationMapView(
         override fun onNewLocationMatcherResult(
             locationMatcherResult: LocationMatcherResult
         ) {
-            currentSpeed = locationMatcherResult.enhancedLocation.speed
-            viewportDataSource.onLocationChanged(locationMatcherResult.enhancedLocation)
+            val enhancedLocation = locationMatcherResult.enhancedLocation
+            currentSpeed = enhancedLocation.speed
+            navigationLocationProvider.changePosition(
+                enhancedLocation,
+                locationMatcherResult.keyPoints
+            )
+            viewportDataSource.onLocationChanged(enhancedLocation)
             viewportDataSource.evaluate()
         }
     }
@@ -559,6 +567,14 @@ class EmbeddedNavigationMapView(
             context,
             language
         )
+
+        // Set up location provider & location puck/movement icon
+        mapView.location.setLocationProvider(navigationLocationProvider)
+        mapView.location.enabled = true
+        mapView.location.updateSettings {
+            enabled = true
+            pulsingEnabled = true
+        }
 
         MapboxNavigationApp.current()
             ?.registerArrivalObserver(arrivalObserver)

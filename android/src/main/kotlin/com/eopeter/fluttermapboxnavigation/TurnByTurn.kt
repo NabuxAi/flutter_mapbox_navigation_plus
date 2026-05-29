@@ -83,6 +83,9 @@ open class TurnByTurn(
             "getPlatformVersion" -> {
                 result.success("Android ${android.os.Build.VERSION.RELEASE}")
             }
+            "isV3" -> {
+                result.success(true)
+            }
             "enableOfflineRouting" -> {
                 // downloadRegionForOfflineRouting(call, result)
             }
@@ -94,11 +97,17 @@ open class TurnByTurn(
             }
             "startFreeDrive" -> {
                 FlutterMapboxNavigationPlugin.enableFreeDriveMode = true
-                this.startFreeDrive()
+                this.startFreeDrive(methodCall, result)
             }
             "startNavigation" -> {
                 FlutterMapboxNavigationPlugin.enableFreeDriveMode = false
                 this.startNavigation(methodCall, result)
+            }
+            "recenter" -> {
+                result.success(false)
+            }
+            "toggleVoiceInstructions" -> {
+                this.toggleVoiceInstructions(methodCall, result)
             }
             "finishNavigation" -> {
                 this.finishNavigation(methodCall, result)
@@ -198,10 +207,16 @@ open class TurnByTurn(
         val navigation = MapboxNavigationApp.current()
         navigation?.stopTripSession()
         PluginUtilities.sendEvent(MapBoxEvents.NAVIGATION_CANCELLED)
+        result.success(true)
     }
 
-    private fun startFreeDrive() {
+    private fun startFreeDrive(methodCall: MethodCall, result: MethodChannel.Result) {
+        val arguments = methodCall.arguments as? Map<*, *>
+        if (arguments != null) {
+            this.setOptions(arguments)
+        }
         this.binding.navigationView.api.startFreeDrive()
+        result.success(true)
     }
 
     private fun startNavigation(methodCall: MethodCall, result: MethodChannel.Result) {
@@ -227,6 +242,16 @@ open class TurnByTurn(
         } else {
             result.success(false)
         }
+    }
+
+    private fun toggleVoiceInstructions(methodCall: MethodCall, result: MethodChannel.Result) {
+        val requested = methodCall.arguments as? Boolean
+        val enabled = requested ?: !this.voiceInstructionsEnabled
+        this.voiceInstructionsEnabled = enabled
+        this.binding.navigationView.customizeViewOptions {
+            voiceInstructionsEnabled = enabled
+        }
+        result.success(enabled)
     }
 
     @SuppressLint("MissingPermission")

@@ -26,7 +26,7 @@ class MapBoxNavigationViewController {
 
   ValueSetter<RouteEvent>? _routeEventNotifier;
 
-  late StreamSubscription<RouteEvent> _routeEventSubscription;
+  StreamSubscription<RouteEvent>? _routeEventSubscription;
 
   ///Current Device OS Version
   Future<String> get platformVersion => _methodChannel
@@ -89,13 +89,13 @@ class MapBoxNavigationViewController {
     }
 
     var i = 0;
-    final wayPointMap = {for (var e in pointList) i++: e};
+    final wayPointMap = {for (final e in pointList) i++: e};
 
     var args = <String, dynamic>{};
     if (options != null) args = options.toMap();
     args['wayPoints'] = wayPointMap;
 
-    _routeEventSubscription = _streamRouteEvent!.listen(_onProgressData);
+    _ensureRouteEventSubscription();
     return _methodChannel
         .invokeMethod('buildRoute', args)
         .then((dynamic result) => result as bool);
@@ -103,12 +103,12 @@ class MapBoxNavigationViewController {
 
   /// starts listening for events
   Future<void> initialize() async {
-    _routeEventSubscription = _streamRouteEvent!.listen(_onProgressData);
+    _ensureRouteEventSubscription();
   }
 
   /// Clear the built route and resets the map
   Future<bool?> clearRoute() async {
-    return _methodChannel.invokeMethod('clearRoute', null);
+    return _methodChannel.invokeMethod('clearRoute');
   }
 
   /// Starts Free Drive Mode
@@ -128,7 +128,7 @@ class MapBoxNavigationViewController {
 
   ///Ends Navigation and Closes the Navigation View
   Future<bool?> finishNavigation() async {
-    final success = await _methodChannel.invokeMethod('finishNavigation', null);
+    final success = await _methodChannel.invokeMethod('finishNavigation');
     return success as bool?;
   }
 
@@ -160,7 +160,18 @@ class MapBoxNavigationViewController {
   /// Call this to cancel the subscription to route events
   /// Add here future disposing methods
   void dispose() {
-    _routeEventSubscription.cancel();
+    final subscription = _routeEventSubscription;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+    }
+    _routeEventSubscription = null;
+  }
+
+  void _ensureRouteEventSubscription() {
+    if (_routeEventSubscription != null) {
+      return;
+    }
+    _routeEventSubscription = _streamRouteEvent!.listen(_onProgressData);
   }
 
   void _onProgressData(RouteEvent event) {

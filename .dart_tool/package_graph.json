@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "flutter_mapbox_navigation_plus",
-      "version": "1.0.0",
+      "version": "1.1.0-biko.1",
       "dependencies": [
         "flutter",
         "flutter_web_plugins",
@@ -44,7 +44,7 @@
     },
     {
       "name": "very_good_analysis",
-      "version": "5.1.0",
+      "version": "10.2.0",
       "dependencies": []
     },
     {
@@ -133,7 +133,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.17",
+      "version": "0.12.19",
       "dependencies": [
         "async",
         "meta",
@@ -144,7 +144,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.7",
+      "version": "0.7.10",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -169,19 +169,19 @@
     },
     {
       "name": "material_color_utilities",
-      "version": "0.11.1",
+      "version": "0.13.0",
       "dependencies": [
         "collection"
       ]
     },
     {
       "name": "characters",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "dependencies": []
     },
     {
       "name": "async",
-      "version": "2.13.0",
+      "version": "2.13.1",
       "dependencies": [
         "collection",
         "meta"
@@ -221,7 +221,7 @@
     },
     {
       "name": "source_span",
-      "version": "1.10.1",
+      "version": "1.10.2",
       "dependencies": [
         "collection",
         "path",
@@ -238,7 +238,7 @@
     },
     {
       "name": "vm_service",
-      "version": "15.0.2",
+      "version": "15.2.0",
       "dependencies": []
     }
   ],

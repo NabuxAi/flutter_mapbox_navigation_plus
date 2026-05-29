@@ -54,7 +54,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 def useMapboxNavigationV3 = (
-        (project.findProperty('BIKO_MAPBOX_NAV_V3') ?: System.getenv('BIKO_MAPBOX_NAV_V3')) != 'false'
+        (project.findProperty('BIKO_MAPBOX_NAV_V3') ?: System.getenv('BIKO_MAPBOX_NAV_V3')) == 'true'
 )
 def mapboxNavigationV3Version = '3.20.0-rc.1'
 def mapboxMapsV11Version = '11.16.3'

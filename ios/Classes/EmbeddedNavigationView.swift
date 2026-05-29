@@ -69,6 +69,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             {
                 result(strongSelf._durationRemaining)
             }
+            else if(call.method == "isV3")
+            {
+                result(true)
+            }
             else if(call.method == "finishNavigation")
             {
                 strongSelf.endNavigation(result: result)
@@ -81,9 +85,15 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             {
                 strongSelf.startEmbeddedNavigation(arguments: arguments, result: result)
             }
-            else if(call.method == "reCenter"){
+            else if(call.method == "recenter" || call.method == "reCenter"){
                 //used to recenter map from user action during navigation
-                strongSelf.navigationMapView.navigationCamera.follow()
+                strongSelf.recenterEmbeddedCamera()
+                result(true)
+            }
+            else if(call.method == "toggleVoiceInstructions")
+            {
+                let requested = call.arguments as? Bool
+                result(strongSelf.toggleEmbeddedVoiceInstructions(requested))
             }
             else
             {
@@ -159,6 +169,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     {
         if routeResponse == nil
         {
+            result(false)
             return
         }
         if (navigationService != nil) {
@@ -167,6 +178,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationMapView.removeRoutes()
         routeResponse = nil
         sendEvent(eventType: MapBoxEventType.navigation_cancelled)
+        result(true)
     }
 
     func buildRoute(arguments: NSDictionary?, flutterResult: @escaping FlutterResult)
@@ -268,6 +280,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     }
 
     func startEmbeddedFreeDrive(arguments: NSDictionary?, result: @escaping FlutterResult) {
+        parseFlutterArguments(arguments: arguments)
 
         let locationProvider: LocationProvider = passiveLocationProvider
         navigationMapView.mapView.location.overrideLocationProvider(with: locationProvider)
@@ -285,7 +298,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     }
 
     func startEmbeddedNavigation(arguments: NSDictionary?, result: @escaping FlutterResult) {
-        guard let response = self.routeResponse else { return }
+        guard let response = self.routeResponse else {
+            result(false)
+            return
+        }
         let navLocationManager = self._simulateRoute ? SimulatedLocationManager(route: response.routes!.first!) : NavigationLocationManager()
         navigationService = MapboxNavigationService(routeResponse: response,
                                                             routeIndex: selectedRouteIndex,
@@ -327,6 +343,18 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         flutterViewController.didMove(toParent: flutterViewController)
         result(true)
 
+    }
+
+    func recenterEmbeddedCamera() {
+        if navigationMapView != nil {
+            navigationMapView.navigationCamera.follow()
+        }
+        _navigationViewController?.navigationMapView?.navigationCamera.follow()
+    }
+
+    func toggleEmbeddedVoiceInstructions(_ requested: Bool?) -> Bool {
+        _voiceEnabled = requested ?? !_voiceEnabled
+        return _voiceEnabled
     }
 
     func constraintsWithPaddingBetween(holderView: UIView, topView: UIView, padding: CGFloat) {
@@ -411,8 +439,7 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
     public func navigationService(_ service: NavigationService, didPass spokenInstruction: SpokenInstruction, routeProgress: RouteProgress) {
         sendEvent(eventType: MapBoxEventType.speech_announcement, data: spokenInstruction.text)
         
-        let voiceEnabled = arguments?["voiceInstructionsEnabled"] as? Bool ?? true
-        if (voiceEnabled) {
+        if (_voiceEnabled) {
             voiceController?.play(spokenInstruction)
         }
     }

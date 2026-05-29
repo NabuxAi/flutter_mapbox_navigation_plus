@@ -242,7 +242,7 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodCallHandler,
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         currentActivity = binding.activity
         currentContext = binding.activity.applicationContext
-        val factory = EmbeddedNavigationViewFactory(binding.activity, binaryMessenger!!)
+        val factory = EmbeddedNavigationViewFactory(binaryMessenger!!, binding.activity)
         platformViewRegistry?.registerViewFactory("FlutterMapboxNavigationView", factory)
     }
 
