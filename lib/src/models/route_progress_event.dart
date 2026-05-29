@@ -23,6 +23,7 @@ class RouteProgressEvent {
     this.legIndex,
     this.stepIndex,
     this.isProgressEvent,
+    this.currentSpeed,
   });
 
   RouteProgressEvent.fromJson(Map<String, dynamic> json) {
@@ -61,6 +62,9 @@ class RouteProgressEvent {
         .toList();
     legIndex = json['legIndex'] as int?;
     stepIndex = json['stepIndex'] as int?;
+    currentSpeed = isNullOrZero(json['currentSpeed'] as num?)
+        ? 0.0
+        : (json['currentSpeed'] as num).toDouble();
   }
 
   bool? arrived;
@@ -76,4 +80,7 @@ class RouteProgressEvent {
   int? legIndex;
   int? stepIndex;
   bool? isProgressEvent;
+
+  /// Current speed of the device in meters per second along the route.
+  double? currentSpeed;
 }

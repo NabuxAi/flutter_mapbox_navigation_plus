@@ -259,6 +259,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             strongSelf.routeResponse = response
             strongSelf.sendEvent(eventType: MapBoxEventType.route_built, data: strongSelf.encodeRouteResponse(response: response))
             strongSelf.navigationMapView?.showcase(response.routes!, routesPresentationStyle: .all(shouldFit: true), animated: true)
+            // Draw the origin/destination waypoint markers on the embedded map.
+            if let primaryRoute = response.routes?.first {
+                strongSelf.navigationMapView?.showWaypoints(on: primaryRoute)
+            }
             flutterResult(true)
         }
     }
@@ -391,7 +395,7 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
         {
             let jsonEncoder = JSONEncoder()
 
-            let progressEvent = MapBoxRouteProgressEvent(progress: progress)
+            let progressEvent = MapBoxRouteProgressEvent(progress: progress, currentSpeed: location.speed)
             let progressEventJsonData = try! jsonEncoder.encode(progressEvent)
             let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.ascii)
 

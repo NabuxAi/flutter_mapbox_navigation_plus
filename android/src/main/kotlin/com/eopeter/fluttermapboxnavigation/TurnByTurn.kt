@@ -115,6 +115,7 @@ open class TurnByTurn(
 
     private fun buildRoute(methodCall: MethodCall, result: MethodChannel.Result) {
         this.isNavigationCanceled = false
+        this.hasArrived = false
 
         val arguments = methodCall.arguments as? Map<*, *>
         if (arguments != null) this.setOptions(arguments)
@@ -436,6 +437,7 @@ open class TurnByTurn(
 
     private var currentRoutes: List<NavigationRoute>? = null
     private var isNavigationCanceled = false
+    private var hasArrived = false
 
     /**
      * Bindings to the example layout.
@@ -492,7 +494,11 @@ open class TurnByTurn(
                 this.distanceRemaining = routeProgress.distanceRemaining
                 this.durationRemaining = routeProgress.durationRemaining
 
-                val progressEvent = MapBoxRouteProgressEvent(routeProgress)
+                val progressEvent = MapBoxRouteProgressEvent(
+                    routeProgress,
+                    this.lastLocation?.speed,
+                    this.hasArrived
+                )
                 PluginUtilities.sendEvent(progressEvent)
             } catch (_: java.lang.Exception) {
                 // handle this error
@@ -502,6 +508,7 @@ open class TurnByTurn(
 
     private val arrivalObserver: ArrivalObserver = object : ArrivalObserver {
         override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
+            this@TurnByTurn.hasArrived = true
             PluginUtilities.sendEvent(MapBoxEvents.ON_ARRIVAL)
         }
 

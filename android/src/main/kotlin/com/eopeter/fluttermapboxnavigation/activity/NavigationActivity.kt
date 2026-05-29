@@ -61,6 +61,7 @@ class NavigationActivity : AppCompatActivity() {
     private var accessToken: String? = null
     private var lastLocation: Location? = null
     private var isNavigationInProgress = false
+    private var hasArrived = false
 
     private var speechPlayer: MapboxSpeechPlayer? = null
     private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
@@ -298,6 +299,7 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     private fun requestRoutes(waypointSet: WaypointSet) {
+        hasArrived = false
         sendEvent(MapBoxEvents.ROUTE_BUILDING)
         MapboxNavigationApp.current()!!.requestRoutes(
             routeOptions = RouteOptions
@@ -443,7 +445,11 @@ class NavigationActivity : AppCompatActivity() {
      */
     private val routeProgressObserver = RouteProgressObserver { routeProgress ->
         //Notify the client
-        val progressEvent = MapBoxRouteProgressEvent(routeProgress)
+        val progressEvent = MapBoxRouteProgressEvent(
+            routeProgress,
+            lastLocation?.speed,
+            hasArrived
+        )
         FlutterMapboxNavigationPlugin.distanceRemaining = routeProgress.distanceRemaining
         FlutterMapboxNavigationPlugin.durationRemaining = routeProgress.durationRemaining
         sendEvent(progressEvent)
@@ -452,6 +458,7 @@ class NavigationActivity : AppCompatActivity() {
     private val arrivalObserver: ArrivalObserver = object : ArrivalObserver {
         override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
             isNavigationInProgress = false
+            hasArrived = true
             sendEvent(MapBoxEvents.ON_ARRIVAL)
         }
 

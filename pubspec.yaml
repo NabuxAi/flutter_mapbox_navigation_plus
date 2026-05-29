@@ -2,7 +2,7 @@ name: flutter_mapbox_navigation_plus
 description: >
   Biko-maintained fork of flutter_mapbox_navigation_plus with embedded Mapbox
   navigation and planned Navigation SDK v3 support.
-version: 1.1.0-biko.1
+version: 1.1.0-biko.2
 repository: https://github.com/biko-app/flutter_mapbox_navigation_plus
 publish_to: none
 

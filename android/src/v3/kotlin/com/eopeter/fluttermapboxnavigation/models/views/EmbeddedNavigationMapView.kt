@@ -94,6 +94,8 @@ class EmbeddedNavigationMapView(
     private var currentRoutes: List<NavigationRoute>? = null
     private var distanceRemaining: Float? = null
     private var durationRemaining: Double? = null
+    private var hasArrived = false
+    private var currentSpeed: Float? = null
     private var currentStyle: Style? = null
     private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
 
@@ -133,6 +135,7 @@ class EmbeddedNavigationMapView(
         override fun onNewLocationMatcherResult(
             locationMatcherResult: LocationMatcherResult
         ) {
+            currentSpeed = locationMatcherResult.enhancedLocation.speed
             viewportDataSource.onLocationChanged(locationMatcherResult.enhancedLocation)
             viewportDataSource.evaluate()
         }
@@ -140,6 +143,7 @@ class EmbeddedNavigationMapView(
 
     private val arrivalObserver = object : ArrivalObserver {
         override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
+            hasArrived = true
             sendEvent("on_arrival")
         }
 
@@ -176,7 +180,7 @@ class EmbeddedNavigationMapView(
         sendEvent(
             "progress_change",
             mapOf(
-                "arrived" to false,
+                "arrived" to hasArrived,
                 "distance" to routeProgress.distanceRemaining,
                 "duration" to routeProgress.durationRemaining,
                 "distanceTraveled" to routeProgress.distanceTraveled,
@@ -196,7 +200,8 @@ class EmbeddedNavigationMapView(
                     ),
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
-                "isPrimary" to true
+                "isPrimary" to true,
+                "currentSpeed" to currentSpeed
             )
         )
     }
@@ -324,6 +329,15 @@ class EmbeddedNavigationMapView(
             "toggleVoiceInstructions" -> {
                 val enabled = call.arguments as? Boolean ?: !voiceInstructionsEnabled
                 voiceInstructionsEnabled = enabled
+                if (!enabled) {
+                    voiceInstructionsPlayer?.volume(
+                        com.mapbox.navigation.voice.model.SpeechVolume(0f)
+                    )
+                } else {
+                    voiceInstructionsPlayer?.volume(
+                        com.mapbox.navigation.voice.model.SpeechVolume(1f)
+                    )
+                }
                 result.success(enabled)
             }
             else -> result.notImplemented()
@@ -331,6 +345,7 @@ class EmbeddedNavigationMapView(
     }
 
     private fun buildRoute(call: MethodCall, result: MethodChannel.Result) {
+        hasArrived = false
         val arguments = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
         val waypointsMap = arguments["wayPoints"] as? Map<*, *>
         val waypoints = mutableListOf<Point>()
@@ -446,12 +461,7 @@ class EmbeddedNavigationMapView(
 
         mapView.mapboxMap.addInteraction(
             ClickInteraction.standardBuildings { building, _ ->
-                mapView.mapboxMap.setFeatureState(
-                    building,
-                    StandardBuildingsState {
-                        select(true)
-                    }
-                )
+                // Don't visually select/highlight the building
                 sendEvent("standardBuildingTapped", emptyMap<String, String>())
                 true
             }

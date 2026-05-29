@@ -54,6 +54,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
 
   bool _isMultipleStop = false;
   double? _distanceRemaining, _durationRemaining;
+  double? _currentSpeed;
   MapBoxNavigationViewController? _controller;
   bool _routeBuilt = false;
   bool _isNavigating = false;
@@ -304,6 +305,27 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
                                   : "---")
                             ],
                           ),
+                          Row(
+                            children: <Widget>[
+                              const Text("Current Speed: "),
+                              Text(_currentSpeed != null
+                                  ? "${(_currentSpeed! * 3.6).toStringAsFixed(0)} km/h"
+                                  : "---")
+                            ],
+                          ),
+                          Row(
+                            children: <Widget>[
+                              const Text("ETA: "),
+                              Text(_durationRemaining != null
+                                  ? DateTime.now()
+                                      .add(Duration(
+                                          seconds: _durationRemaining!.toInt()))
+                                      .toLocal()
+                                      .toString()
+                                      .substring(11, 16)
+                                  : "---")
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -342,6 +364,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
         if (progressEvent.currentStepInstruction != null) {
           _instruction = progressEvent.currentStepInstruction;
         }
+        _currentSpeed = progressEvent.currentSpeed;
         break;
       case MapBoxEvent.route_building:
       case MapBoxEvent.route_built:

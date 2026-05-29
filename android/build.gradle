@@ -114,12 +114,16 @@ kotlin {
 
 dependencies {
     if (useMapboxNavigationV3) {
+        // ── Mapbox Navigation SDK v3 ──
         implementation "com.mapbox.navigationcore:android:$mapboxNavigationV3Version"
         implementation "com.mapbox.navigationcore:ui-maps:$mapboxNavigationV3Version"
         implementation "com.mapbox.navigationcore:voice:$mapboxNavigationV3Version"
         implementation "com.mapbox.navigationcore:tripdata:$mapboxNavigationV3Version"
         implementation "com.mapbox.navigationcore:ui-components:$mapboxNavigationV3Version"
+        implementation "com.mapbox.navigationcore:navigation:$mapboxNavigationV3Version"
         implementation "com.mapbox.maps:android:$mapboxMapsV11Version"
+    } else {
+        // ── Mapbox Navigation SDK v2 ──
         implementation "com.mapbox.navigation:copilot:2.16.0"
         implementation "com.mapbox.navigation:ui-app:2.16.0"
         implementation "com.mapbox.navigation:ui-dropin:2.16.0"

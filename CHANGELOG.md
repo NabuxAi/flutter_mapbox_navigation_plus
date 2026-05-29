@@ -1,3 +1,9 @@
+## 1.0.1
+* Expose `currentSpeed` (meters/second) on `RouteProgressEvent` for Android and iOS.
+* Send the `arrived` flag on Android route progress events for parity with iOS.
+* Draw origin/destination waypoint markers on the embedded iOS map when a route is built.
+* Example app now displays current speed and ETA.
+
 ## 1.0.0
 * Initial release of `flutter_mapbox_navigation_plus`.
 * Support for latest Flutter versions.

@@ -4,7 +4,11 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.mapbox.navigation.base.trip.model.RouteProgress
 
-class MapBoxRouteProgressEvent(progress: RouteProgress) {
+class MapBoxRouteProgressEvent(
+    progress: RouteProgress,
+    currentSpeed: Float? = null,
+    hasArrived: Boolean = false
+) {
 
     var arrived: Boolean? = null
     private var distance: Float? = null
@@ -17,11 +21,11 @@ class MapBoxRouteProgressEvent(progress: RouteProgress) {
     var stepIndex: Int? = null
     private var currentLeg: MapBoxRouteLeg? = null
     var priorLeg: MapBoxRouteLeg? = null
+    private var currentSpeed: Float? = null
     lateinit var remainingLegs: List<MapBoxRouteLeg>
 
     init {
-        // val util = RouteUtils()
-        // arrived = util.isArrivalEvent(progress) && util.isLastLeg(progress)
+        arrived = hasArrived
         distance = progress.distanceRemaining
         duration = progress.durationRemaining
         distanceTraveled = progress.distanceTraveled
@@ -33,6 +37,7 @@ class MapBoxRouteProgressEvent(progress: RouteProgress) {
         currentStepInstruction = progress.bannerInstructions?.primary()?.text()
         currentLegDistanceTraveled = progress.currentLegProgress?.distanceTraveled
         currentLegDistanceRemaining = progress.currentLegProgress?.distanceRemaining
+        this.currentSpeed = currentSpeed
     }
 
     fun toJson(): String {
@@ -48,6 +53,8 @@ class MapBoxRouteProgressEvent(progress: RouteProgress) {
         addProperty(json, "currentLegDistanceRemaining", currentLegDistanceRemaining)
         addProperty(json, "currentLegDistanceTraveled", currentLegDistanceTraveled)
         addProperty(json, "currentStepInstruction", currentStepInstruction)
+        addProperty(json, "currentSpeed", currentSpeed)
+        addProperty(json, "arrived", arrived)
 
         if (currentLeg != null) {
             json.add("currentLeg", currentLeg!!.toJsonObject())
@@ -57,6 +64,12 @@ class MapBoxRouteProgressEvent(progress: RouteProgress) {
     }
 
     private fun addProperty(json: JsonObject, prop: String, value: Double?) {
+        if (value != null) {
+            json.addProperty(prop, value)
+        }
+    }
+
+    private fun addProperty(json: JsonObject, prop: String, value: Boolean?) {
         if (value != null) {
             json.addProperty(prop, value)
         }

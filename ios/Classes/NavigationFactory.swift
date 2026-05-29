@@ -413,12 +413,12 @@ extension NavigationFactory : NavigationViewControllerDelegate {
         {
             let jsonEncoder = JSONEncoder()
             
-            let progressEvent = MapBoxRouteProgressEvent(progress: progress)
+            let progressEvent = MapBoxRouteProgressEvent(progress: progress, currentSpeed: location.speed)
             let progressEventJsonData = try! jsonEncoder.encode(progressEvent)
             let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.ascii)
-            
+
             _eventSink!(progressEventJson)
-            
+
             if(progress.isFinalLeg && progress.currentLegProgress.userHasArrivedAtWaypoint && !_showEndOfRouteFeedback)
             {
                 _eventSink = nil

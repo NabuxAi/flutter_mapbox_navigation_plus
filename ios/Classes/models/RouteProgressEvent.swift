@@ -17,9 +17,12 @@ public class MapBoxRouteProgressEvent : Codable
     let currentLeg: MapBoxRouteLeg
     var priorLeg: MapBoxRouteLeg? = nil
     var remainingLegs: [MapBoxRouteLeg] = []
+    let currentSpeed: Double
 
-    init(progress: RouteProgress) {
+    init(progress: RouteProgress, currentSpeed: Double = 0.0) {
 
+        // CLLocation.speed is negative when the value is invalid; clamp to 0.
+        self.currentSpeed = currentSpeed < 0 ? 0.0 : currentSpeed
         arrived = progress.isFinalLeg && progress.currentLegProgress.userHasArrivedAtWaypoint
         distance = progress.distanceRemaining
         distanceTraveled = progress.distanceTraveled
