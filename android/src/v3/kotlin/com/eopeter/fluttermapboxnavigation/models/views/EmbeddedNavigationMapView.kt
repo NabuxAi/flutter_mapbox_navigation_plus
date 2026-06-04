@@ -139,7 +139,7 @@ class EmbeddedNavigationMapView(
             locationMatcherResult: LocationMatcherResult
         ) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
-            currentSpeed = enhancedLocation.speed
+            currentSpeed = enhancedLocation.speed?.toFloat()
             navigationLocationProvider.changePosition(
                 enhancedLocation,
                 locationMatcherResult.keyPoints
