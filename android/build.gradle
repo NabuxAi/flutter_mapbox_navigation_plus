@@ -1,33 +1,13 @@
+// Declarative plugin application (no buildscript KGP classpath): Flutter is
+// dropping support for plugins that imperatively apply the Kotlin Gradle
+// Plugin, and this lets the consuming app's AGP/Kotlin versions apply.
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
 group 'com.eopeter.fluttermapboxnavigation'
 version '1.0-SNAPSHOT'
-
-buildscript {
-    ext.kotlin_version = '1.7.10'
-    ext.android_gradle_version = '7.4.2'
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            url 'https://api.mapbox.com/downloads/v2/releases/maven'
-            authentication {
-                basic(BasicAuthentication)
-            }
-            credentials {
-                username = "mapbox"
-                password = project.hasProperty('MAPBOX_DOWNLOADS_TOKEN') ? project.property('MAPBOX_DOWNLOADS_TOKEN') : System.getenv('MAPBOX_DOWNLOADS_TOKEN')
-                if (password == null || password == "") {
-                    throw new GradleException("MAPBOX_DOWNLOADS_TOKEN isn't set. Set it to the project properties or to the enviroment variables.")
-                }
-            }
-        }
-    }
-
-    dependencies {
-        classpath "com.android.tools.build:gradle:$android_gradle_version"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.mapbox.gradle.plugins:access-token:0.4.0"
-    }
-}
 
 rootProject.allprojects {
     repositories {
@@ -50,13 +30,11 @@ rootProject.allprojects {
     }
 }
 
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-
 def useMapboxNavigationV3 = (
         (project.findProperty('BIKO_MAPBOX_NAV_V3') ?: System.getenv('BIKO_MAPBOX_NAV_V3')) == 'true'
 )
-def mapboxNavigationV3Version = '3.20.0-rc.1'
+// Pin a stable (non release-candidate) Navigation SDK release.
+def mapboxNavigationV3Version = '3.20.0'
 def mapboxMapsV11Version = '11.16.3'
 
 android {
@@ -89,12 +67,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     buildFeatures{
@@ -129,7 +107,7 @@ dependencies {
         implementation "com.mapbox.navigation:ui-dropin:2.16.0"
         implementation "com.mapbox.navigation:ui-voice:2.16.0"
     }
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    // The Kotlin stdlib is added automatically by the Kotlin Gradle Plugin.
     implementation 'com.jakewharton.timber:timber:4.7.1'
     implementation 'com.google.code.gson:gson:2.8.9'
 
