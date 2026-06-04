@@ -16,6 +16,9 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     
     var _distanceRemaining: Double?
     var _durationRemaining: Double?
+    // Emit navigation_running once per session instead of on every location
+    // tick (consumers treat it as a state transition, not a heartbeat).
+    var _navigationRunningNotified = false
     var _navigationMode: String?
     var _routes: [Route]?
     var _wayPointOrder = [Int:Waypoint]()
@@ -269,6 +272,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     
     func endNavigation(result: FlutterResult?)
     {
+        _navigationRunningNotified = false
         sendEvent(eventType: MapBoxEventType.navigation_finished)
         if(self._navigationViewController != nil)
         {
@@ -407,22 +411,26 @@ extension NavigationFactory : NavigationViewControllerDelegate {
         _lastKnownLocation = location
         _distanceRemaining = progress.distanceRemaining
         _durationRemaining = progress.durationRemaining
-        sendEvent(eventType: MapBoxEventType.navigation_running)
+        if (!_navigationRunningNotified)
+        {
+            _navigationRunningNotified = true
+            sendEvent(eventType: MapBoxEventType.navigation_running)
+        }
         //_currentLegDescription =  progress.currentLeg.description
         if(_eventSink != nil)
         {
             let jsonEncoder = JSONEncoder()
-            
+
             let progressEvent = MapBoxRouteProgressEvent(progress: progress, currentSpeed: location.speed)
             let progressEventJsonData = try! jsonEncoder.encode(progressEvent)
-            let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.ascii)
+            // UTF-8: non-ASCII instruction text (Arabic, Persian, ...) made the
+            // .ascii encoder return nil and silently killed the event stream.
+            let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.utf8)
 
             _eventSink!(progressEventJson)
 
-            if(progress.isFinalLeg && progress.currentLegProgress.userHasArrivedAtWaypoint && !_showEndOfRouteFeedback)
-            {
-                _eventSink = nil
-            }
+            // Keep the sink alive after arrival: navigation_finished/cancelled
+            // still need to reach Flutter. Only onCancel clears the sink.
         }
     }
     
@@ -463,7 +471,7 @@ extension NavigationFactory : NavigationViewControllerDelegate {
             
             let localFeedback = Feedback(rating: feedback.rating, comment: feedback.comment)
             let feedbackJsonData = try! jsonEncoder.encode(localFeedback)
-            let feedbackJson = String(data: feedbackJsonData, encoding: String.Encoding.ascii)
+            let feedbackJson = String(data: feedbackJsonData, encoding: String.Encoding.utf8)
             
             sendEvent(eventType: MapBoxEventType.navigation_finished, data: feedbackJson ?? "")
             

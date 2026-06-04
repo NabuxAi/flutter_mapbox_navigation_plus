@@ -3,6 +3,8 @@ package com.eopeter.fluttermapboxnavigation
 import android.app.Activity
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import com.eopeter.fluttermapboxnavigation.factory.EmbeddedNavigationViewFactory
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -20,6 +22,7 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
     private lateinit var channel: MethodChannel
     private lateinit var events: EventChannel
     private var currentActivity: Activity? = null
+    private var viewFactory: EmbeddedNavigationViewFactory? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         val messenger = binding.binaryMessenger
@@ -68,17 +71,33 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
         channel.setMethodCallHandler(null)
         events.setStreamHandler(null)
         currentActivity = null
+        viewFactory = null
+        // Clear engine-scoped statics so a destroyed engine's messenger,
+        // registry and sink are never reused (and can be re-registered by the
+        // next engine instance).
+        eventSink = null
+        platformViewRegistry = null
+        binaryMessenger = null
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         currentActivity = binding.activity
+
+        // A factory may only be registered once per engine; a second call
+        // throws IllegalStateException (this used to crash on rotation/theme
+        // changes). Re-attach just refreshes the activity reference instead.
+        val existing = viewFactory
+        if (existing != null) {
+            existing.activity = binding.activity
+            return
+        }
+
         val registry = platformViewRegistry
         val messenger = binaryMessenger
         if (registry != null && messenger != null) {
-            registry.registerViewFactory(
-                viewId,
-                EmbeddedNavigationViewFactory(messenger, binding.activity)
-            )
+            val factory = EmbeddedNavigationViewFactory(messenger, binding.activity)
+            viewFactory = factory
+            registry.registerViewFactory(viewId, factory)
         }
     }
 
@@ -108,7 +127,16 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
             } else {
                 mapOf("eventType" to eventType, "data" to data)
             }
-            eventSink?.success(JSONObject(payload).toString())
+            val message = JSONObject(payload).toString()
+            // EventChannel sinks must be invoked on the platform (main) thread;
+            // callers may invoke this from SDK worker threads.
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                eventSink?.success(message)
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    eventSink?.success(message)
+                }
+            }
         }
     }
 }

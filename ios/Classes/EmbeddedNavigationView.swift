@@ -71,7 +71,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             }
             else if(call.method == "isV3")
             {
-                result(true)
+                // iOS still embeds the Nav SDK v2 NavigationViewController with
+                // its own native HUD. Reporting v3 made Flutter consumers draw a
+                // second HUD on top of the native one.
+                result(false)
             }
             else if(call.method == "finishNavigation")
             {
@@ -334,13 +337,21 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         _navigationViewController!.showsReportFeedback = _showReportFeedbackButton
         _navigationViewController!.showsEndOfRouteFeedback = _showEndOfRouteFeedback
 
-        let flutterViewController = UIApplication.shared.delegate?.window?!.rootViewController as! FlutterViewController
-        flutterViewController.addChild(_navigationViewController!)
+        // Any root view controller can host the child; the force-cast to
+        // FlutterViewController crashed under scene/add-to-app setups.
+        guard let hostViewController = UIApplication.shared.delegate?.window??.rootViewController else {
+            result(false)
+            return
+        }
+        hostViewController.addChild(_navigationViewController!)
 
         self.navigationMapView.addSubview(_navigationViewController!.view)
         _navigationViewController!.view.translatesAutoresizingMaskIntoConstraints = false
         constraintsWithPaddingBetween(holderView: self.navigationMapView, topView: _navigationViewController!.view, padding: 0.0)
-        flutterViewController.didMove(toParent: flutterViewController)
+        // Complete the containment contract on the child (the old code called
+        // didMove on the parent itself, which is a no-op).
+        _navigationViewController!.didMove(toParent: hostViewController)
+        _navigationRunningNotified = false
         result(true)
 
     }
@@ -417,7 +428,11 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
         _lastKnownLocation = location
         _distanceRemaining = progress.distanceRemaining
         _durationRemaining = progress.durationRemaining
-        sendEvent(eventType: MapBoxEventType.navigation_running)
+        if (!_navigationRunningNotified)
+        {
+            _navigationRunningNotified = true
+            sendEvent(eventType: MapBoxEventType.navigation_running)
+        }
         //_currentLegDescription =  progress.currentLeg.description
         if(_eventSink != nil)
         {
@@ -425,14 +440,14 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
 
             let progressEvent = MapBoxRouteProgressEvent(progress: progress, currentSpeed: location.speed)
             let progressEventJsonData = try! jsonEncoder.encode(progressEvent)
-            let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.ascii)
+            // UTF-8: non-ASCII instruction text (Arabic, Persian, ...) made the
+            // .ascii encoder return nil and silently killed the event stream.
+            let progressEventJson = String(data: progressEventJsonData, encoding: String.Encoding.utf8)
 
             _eventSink!(progressEventJson)
 
-            if(progress.isFinalLeg && progress.currentLegProgress.userHasArrivedAtWaypoint)
-            {
-                _eventSink = nil
-            }
+            // Keep the sink alive after arrival: navigation_finished/cancelled
+            // still need to reach Flutter. Only onCancel clears the sink.
         }
     }
 

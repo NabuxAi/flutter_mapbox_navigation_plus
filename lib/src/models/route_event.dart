@@ -19,10 +19,14 @@ class RouteEvent {
     } catch (_) {}
 
     final dataJson = json['data'];
-    if (eventType == MapBoxEvent.progress_change) {
-      data = RouteProgressEvent.fromJson(dataJson as Map<String, dynamic>);
+    if (eventType == MapBoxEvent.progress_change &&
+        dataJson is Map<String, dynamic>) {
+      data = RouteProgressEvent.fromJson(dataJson);
     } else if (eventType == MapBoxEvent.navigation_finished &&
-        (dataJson as String).isNotEmpty) {
+        dataJson is String &&
+        dataJson.isNotEmpty) {
+      // Android sends navigation_finished without a data payload; only iOS
+      // attaches optional end-of-route feedback JSON.
       data =
           MapBoxFeedback.fromJson(jsonDecode(dataJson) as Map<String, dynamic>);
     } else if (eventType == MapBoxEvent.on_map_tap) {

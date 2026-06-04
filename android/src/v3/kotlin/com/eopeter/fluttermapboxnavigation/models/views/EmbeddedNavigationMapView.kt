@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import androidx.lifecycle.LifecycleOwner
@@ -220,6 +222,9 @@ class EmbeddedNavigationMapView(
         events.setStreamHandler(this)
         initializeNavigationSdk(context)
         loadInitialStyle()
+        // Apply the caller-provided camera padding/zoom/tilt; without this the
+        // options sent from Flutter were silently ignored.
+        configureViewport()
         registerMapTap()
         registerMoveGesture()
     }
@@ -236,6 +241,11 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
         MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
         MapboxNavigationApp.current()?.stopTripSession()
+        // Mirror the attach() in initializeNavigationSdk; otherwise each opened
+        // navigation view leaks its Activity through the retained lifecycle owner.
+        (activity as? LifecycleOwner)?.let { owner ->
+            MapboxNavigationApp.detach(owner)
+        }
         speechApi?.cancel()
         voiceInstructionsPlayer?.shutdown()
         routeLineApi.cancel()
@@ -372,9 +382,18 @@ class EmbeddedNavigationMapView(
             return
         }
 
+        // Honour the language/units the caller configured instead of silently
+        // falling back to the device locale for routing instructions.
+        val routeLanguage = this.options["language"] as? String
+        val routeUnits = this.options["units"] as? String
+
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions(navigationProfile(arguments))
             .applyLanguageAndVoiceUnitOptions(activity)
+            .apply {
+                if (!routeLanguage.isNullOrBlank()) language(routeLanguage)
+                if (!routeUnits.isNullOrBlank()) voiceUnits(routeUnits)
+            }
             .coordinatesList(waypoints)
             .alternatives(arguments["alternatives"] as? Boolean ?: false)
             .build()
@@ -598,6 +617,16 @@ class EmbeddedNavigationMapView(
         } else {
             mapOf("eventType" to eventType, "data" to data)
         }
-        eventSink?.success(JSONObject(payload).toString())
+        val message = JSONObject(payload).toString()
+        // EventChannel sinks must be invoked on the platform (main) thread.
+        // Some SDK callbacks (speech generation, router internals) arrive on
+        // worker threads and would otherwise terminate the event stream.
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            eventSink?.success(message)
+        } else {
+            Handler(Looper.getMainLooper()).post {
+                eventSink?.success(message)
+            }
+        }
     }
 }

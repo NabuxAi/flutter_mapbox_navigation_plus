@@ -10,7 +10,12 @@ import io.flutter.plugin.platform.PlatformViewFactory
 
 class EmbeddedNavigationViewFactory(
     private val messenger: BinaryMessenger,
-    private val activity: Activity
+    /**
+     * Mutable on purpose: a platform-view factory can only be registered once
+     * per engine, so after a configuration change the plugin refreshes this
+     * reference instead of re-registering (which would throw).
+     */
+    var activity: Activity
 ) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         return EmbeddedNavigationMapView(context, activity, messenger, viewId, args)

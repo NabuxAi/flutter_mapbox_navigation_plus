@@ -171,7 +171,13 @@ class MapBoxNavigationViewController {
     if (_routeEventSubscription != null) {
       return;
     }
-    _routeEventSubscription = _streamRouteEvent!.listen(_onProgressData);
+    _routeEventSubscription = _streamRouteEvent!.listen(
+      _onProgressData,
+      // A single malformed payload must not surface as an unhandled async
+      // error or stop navigation events for the rest of the session.
+      onError: (Object error, StackTrace stackTrace) {},
+      cancelOnError: false,
+    );
   }
 
   void _onProgressData(RouteEvent event) {
@@ -188,7 +194,7 @@ class MapBoxNavigationViewController {
     RouteEvent event;
     final map = json.decode(jsonString) as Map<String, dynamic>;
     final progressEvent = RouteProgressEvent.fromJson(map);
-    if (progressEvent.isProgressEvent!) {
+    if (progressEvent.isProgressEvent ?? false) {
       event = RouteEvent(
         eventType: MapBoxEvent.progress_change,
         data: progressEvent,

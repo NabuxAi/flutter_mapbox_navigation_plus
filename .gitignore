@@ -1,0 +1,16 @@
+# Dart / Flutter tooling
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# IDE
+.idea/
+*.iml
+
+# Local scratch / logs
+dry_run*.txt
+test_out.txt
+
+# Secrets — supply via ~/.gradle/gradle.properties or env, never commit
+**/gradle.properties.local
