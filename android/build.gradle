@@ -100,6 +100,10 @@ dependencies {
         implementation "com.mapbox.navigationcore:ui-components:$mapboxNavigationV3Version"
         implementation "com.mapbox.navigationcore:navigation:$mapboxNavigationV3Version"
         implementation "com.mapbox.maps:android:$mapboxMapsV11Version"
+        // ViewTree owner extensions used to drive the bare MapView lifecycle inside
+        // the Flutter PlatformView (otherwise the v11 renderer never starts -> black map).
+        implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
+        implementation "androidx.savedstate:savedstate-ktx:1.2.1"
     } else {
         // ── Mapbox Navigation SDK v2 ──
         implementation "com.mapbox.navigation:copilot:2.16.0"
