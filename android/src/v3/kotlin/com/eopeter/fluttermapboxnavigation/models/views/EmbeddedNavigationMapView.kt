@@ -9,6 +9,9 @@ import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.eopeter.fluttermapboxnavigation.FlutterMapboxNavigationPlugin
 import com.mapbox.api.directions.v5.DirectionsCriteria
 import com.mapbox.api.directions.v5.models.RouteOptions
@@ -218,6 +221,20 @@ class EmbeddedNavigationMapView(
 
     init {
         root.addView(mapView)
+        // Maps SDK v11 only starts its GL renderer once the MapView can resolve a
+        // ViewTreeLifecycleOwner and receive start/resume callbacks. A Flutter
+        // (Hybrid Composition) PlatformView tree exposes none, so without this the
+        // map surface never draws and the user sees a black map even though the
+        // ornaments (logo/compass/scale) and navigation events work. Wire the
+        // hosting Activity's lifecycle onto the view tree to drive rendering.
+        (activity as? LifecycleOwner)?.let { owner ->
+            root.setViewTreeLifecycleOwner(owner)
+            mapView.setViewTreeLifecycleOwner(owner)
+        }
+        (activity as? SavedStateRegistryOwner)?.let { owner ->
+            root.setViewTreeSavedStateRegistryOwner(owner)
+            mapView.setViewTreeSavedStateRegistryOwner(owner)
+        }
         channel.setMethodCallHandler(this)
         events.setStreamHandler(this)
         initializeNavigationSdk(context)
