@@ -1,5 +1,8 @@
 ## 1.1.0
 * Maintained by NabuxAi.
+* Android: implemented `simulateRoute` via a replay trip session so the puck drives along the route.
+* Android: fixed the embedded navigation map rendering black by owning the MapView lifecycle.
+* Android: added offline maps & offline routing — `downloadOfflineRegion`, `removeOfflineRegion`, `getOfflineRegions` with a shared tile store and progress events.
 * Android: Mapbox Navigation SDK v3 (Maps SDK v11) is now the default; removed the `BIKO_MAPBOX_NAV_V3` build flag.
 * Android: migrated to declarative Kotlin/Android Gradle plugins, Java 17, and the stable Navigation SDK 3.20.0.
 * Stopped tracking generated `build/` artifacts.

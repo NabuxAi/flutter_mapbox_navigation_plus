@@ -665,9 +665,16 @@ class EmbeddedNavigationMapView(
     }
 
     private fun initializeNavigationSdk(context: Context) {
+        // Ensure the shared offline tile store exists, then point routing at it so
+        // downloaded regions can serve directions without a network connection.
+        com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
+            .initialize(context.applicationContext)
         if (!MapboxNavigationApp.isSetup()) {
             MapboxNavigationApp.setup {
-                NavigationOptions.Builder(context.applicationContext).build()
+                val builder = NavigationOptions.Builder(context.applicationContext)
+                com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
+                    .configureRoutingTiles(builder)
+                builder.build()
             }
         }
         MapboxNavigationApp.attach(this)

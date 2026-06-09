@@ -35,7 +35,11 @@ class RouteEvent {
       data = WayPoint.fromJson(json as Map<String, dynamic>);
     } else if (eventType == MapBoxEvent.standardPoiTapped ||
         eventType == MapBoxEvent.standardBuildingTapped ||
-        eventType == MapBoxEvent.camera_state_changed) {
+        eventType == MapBoxEvent.camera_state_changed ||
+        eventType == MapBoxEvent.offline_region_progress ||
+        eventType == MapBoxEvent.offline_region_complete ||
+        eventType == MapBoxEvent.offline_region_error ||
+        eventType == MapBoxEvent.offline_region_removed) {
       data = dataJson as Map<String, dynamic>?;
     } else {
       data = jsonEncode(dataJson);

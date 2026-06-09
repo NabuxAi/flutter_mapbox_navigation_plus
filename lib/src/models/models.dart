@@ -2,6 +2,7 @@ export 'event_data.dart';
 export 'events.dart';
 export 'feedback.dart';
 export 'navmode.dart';
+export 'offline_region.dart';
 export 'options.dart';
 export 'route_event.dart';
 export 'route_leg.dart';

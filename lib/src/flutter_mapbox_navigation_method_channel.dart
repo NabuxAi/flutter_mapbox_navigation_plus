@@ -107,6 +107,31 @@ class MethodChannelFlutterMapboxNavigation
   }
 
   @override
+  Future<bool?> downloadOfflineRegion(OfflineRegion region) async {
+    final success = await methodChannel.invokeMethod<bool?>(
+      'downloadOfflineRegion',
+      region.toMap(),
+    );
+    return success;
+  }
+
+  @override
+  Future<bool?> removeOfflineRegion(String id) async {
+    final success = await methodChannel.invokeMethod<bool?>(
+      'removeOfflineRegion',
+      <String, dynamic>{'id': id},
+    );
+    return success;
+  }
+
+  @override
+  Future<List<String>> getOfflineRegions() async {
+    final regions =
+        await methodChannel.invokeMethod<List<dynamic>>('getOfflineRegions');
+    return regions?.map((dynamic e) => e.toString()).toList() ?? <String>[];
+  }
+
+  @override
   Future<dynamic> registerRouteEventListener(
     ValueSetter<RouteEvent> listener,
   ) async {

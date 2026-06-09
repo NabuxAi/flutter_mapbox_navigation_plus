@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.eopeter.fluttermapboxnavigation.factory.EmbeddedNavigationViewFactory
+import com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -53,7 +54,48 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
                 )
             }
             "enableOfflineRouting" -> {
-                result.error("TODO", "Offline routing is not implemented yet.", null)
+                val ctx = currentActivity?.applicationContext
+                if (ctx == null) {
+                    result.error("NO_CONTEXT", "No activity context available.", null)
+                } else {
+                    MapboxOfflineManager.initialize(ctx)
+                    result.success(true)
+                }
+            }
+            "downloadOfflineRegion" -> {
+                val ctx = currentActivity?.applicationContext
+                if (ctx == null) {
+                    result.error("NO_CONTEXT", "No activity context available.", null)
+                    return
+                }
+                MapboxOfflineManager.initialize(ctx)
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val id = args["id"] as? String ?: "default-region"
+                val minZoom = (args["minZoom"] as? Number)?.toInt() ?: 0
+                val maxZoom = (args["maxZoom"] as? Number)?.toInt() ?: 16
+                val styleUrl = args["styleUrl"] as? String
+                @Suppress("UNCHECKED_CAST")
+                val coordinates =
+                    (args["coordinates"] as? List<List<Double>>) ?: emptyList()
+                MapboxOfflineManager.downloadRegion(id, coordinates, minZoom, maxZoom, styleUrl)
+                result.success(true)
+            }
+            "removeOfflineRegion" -> {
+                val ctx = currentActivity?.applicationContext
+                if (ctx != null) MapboxOfflineManager.initialize(ctx)
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val id = args["id"] as? String
+                if (id == null) {
+                    result.error("NO_ID", "An offline region id is required.", null)
+                } else {
+                    MapboxOfflineManager.removeRegion(id)
+                    result.success(true)
+                }
+            }
+            "getOfflineRegions" -> {
+                val ctx = currentActivity?.applicationContext
+                if (ctx != null) MapboxOfflineManager.initialize(ctx)
+                MapboxOfflineManager.listRegions(result)
             }
             else -> result.notImplemented()
         }
@@ -82,6 +124,9 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         currentActivity = binding.activity
+        // Set up the shared tile store before any MapView is created so both the
+        // map renderer and routing can read from downloaded offline regions.
+        MapboxOfflineManager.initialize(binding.activity.applicationContext)
 
         // A factory may only be registered once per engine; a second call
         // throws IllegalStateException (this used to crash on rotation/theme

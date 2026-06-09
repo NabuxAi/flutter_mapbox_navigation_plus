@@ -24,5 +24,9 @@ enum MapBoxEvent {
   standardPoiTapped,
   standardBuildingTapped,
   mapStyleLoaded,
-  camera_state_changed
+  camera_state_changed,
+  offline_region_progress,
+  offline_region_complete,
+  offline_region_error,
+  offline_region_removed
 }

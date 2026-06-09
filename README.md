@@ -234,6 +234,70 @@ await _controller.buildRoute(wayPoints: wayPoints);
 await _controller.startNavigation();
 ```
 
+## Offline Maps & Offline Navigation (Android)
+
+The Android v3 implementation can download a region so that **both the map and
+routing work without a network connection**. A single shared tile store backs the
+map renderer and the Navigation SDK, so one download serves both.
+
+Pick the area as an arbitrary polygon (or a bounding box) and listen for progress
+through the normal route event listener:
+
+```dart
+// Listen for download progress / completion.
+MapBoxNavigation.instance.registerRouteEventListener((event) {
+  switch (event.eventType) {
+    case MapBoxEvent.offline_region_progress:
+      final data = event.data as Map<String, dynamic>;
+      print('Offline ${data['id']}: ${data['progress']}%');
+      break;
+    case MapBoxEvent.offline_region_complete:
+      print('Offline region ready');
+      break;
+    case MapBoxEvent.offline_region_error:
+      print('Offline error: ${(event.data as Map)['message']}');
+      break;
+    default:
+      break;
+  }
+});
+
+// Download a rectangular region (map tiles + routing tiles).
+await MapBoxNavigation.instance.downloadOfflineRegion(
+  OfflineRegion.fromBounds(
+    id: 'muscat',
+    southWestLat: 23.55,
+    southWestLng: 58.35,
+    northEastLat: 23.65,
+    northEastLng: 58.55,
+    maxZoom: 16,
+  ),
+);
+
+// ...or an arbitrary polygon ([longitude, latitude] pairs):
+await MapBoxNavigation.instance.downloadOfflineRegion(
+  OfflineRegion(
+    id: 'custom-area',
+    coordinates: const [
+      [58.35, 23.55],
+      [58.55, 23.55],
+      [58.55, 23.65],
+      [58.35, 23.65],
+      [58.35, 23.55],
+    ],
+    maxZoom: 16,
+  ),
+);
+
+// Manage downloaded regions.
+final regions = await MapBoxNavigation.instance.getOfflineRegions();
+await MapBoxNavigation.instance.removeOfflineRegion('muscat');
+```
+
+> [!NOTE]
+> Higher `maxZoom` values dramatically increase the download size. iOS offline
+> support is not yet implemented (see the roadmap).
+
 ### Additional iOS Configuration
 
 Add the following to your `Info.plist` file:
@@ -261,7 +325,8 @@ Add the following to your `Info.plist` file:
 * [x] Embeddable navigation view
 * [x] Mapbox Navigation SDK v3 on Android
 * [ ] Mapbox Navigation SDK v3 on iOS
-* [ ] Offline routing
+* [x] Offline maps & routing on Android
+* [ ] Offline maps & routing on iOS
 
 ## Maintainer
 
