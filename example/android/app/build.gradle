@@ -54,6 +54,10 @@ android {
         release {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig signingConfigs.debug
+            // Keep the demo APK simple to build/test: no R8 shrinking. (The plugin
+            // ships consumer ProGuard rules for apps that do enable minification.)
+            minifyEnabled false
+            shrinkResources false
         }
     }
 
