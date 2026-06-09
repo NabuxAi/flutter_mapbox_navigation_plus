@@ -8,8 +8,12 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.eopeter.fluttermapboxnavigation.FlutterMapboxNavigationPlugin
@@ -74,7 +78,28 @@ class EmbeddedNavigationMapView(
     messenger: BinaryMessenger,
     viewId: Int,
     private val args: Any?
-) : PlatformView, MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
+) : PlatformView,
+    MethodChannel.MethodCallHandler,
+    EventChannel.StreamHandler,
+    LifecycleOwner,
+    SavedStateRegistryOwner {
+
+    // Maps SDK v11 drives its GL renderer from the ViewTreeLifecycleOwner it
+    // resolves at attach time. Inside a Flutter (Hybrid Composition) PlatformView
+    // the hosting Activity is not guaranteed to be a LifecycleOwner (e.g. when the
+    // app uses FlutterActivity instead of FlutterFragmentActivity), and even when
+    // it is, the attach timing can leave the map without start/resume callbacks ->
+    // the surface never draws and the user sees a black map while the ornaments
+    // (logo/compass/scale) still render. Owning the lifecycle here and driving it
+    // from the view's window-attach state makes rendering independent of the host.
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
 
     private val root = FrameLayout(context)
     private val mapView = MapView(context)
@@ -221,19 +246,31 @@ class EmbeddedNavigationMapView(
 
     init {
         root.addView(mapView)
-        // Maps SDK v11 only starts its GL renderer once the MapView can resolve a
-        // ViewTreeLifecycleOwner and receive start/resume callbacks. A Flutter
-        // (Hybrid Composition) PlatformView tree exposes none, so without this the
-        // map surface never draws and the user sees a black map even though the
-        // ornaments (logo/compass/scale) and navigation events work. Wire the
-        // hosting Activity's lifecycle onto the view tree to drive rendering.
-        (activity as? LifecycleOwner)?.let { owner ->
-            root.setViewTreeLifecycleOwner(owner)
-            mapView.setViewTreeLifecycleOwner(owner)
-        }
-        (activity as? SavedStateRegistryOwner)?.let { owner ->
-            root.setViewTreeSavedStateRegistryOwner(owner)
-            mapView.setViewTreeSavedStateRegistryOwner(owner)
+        // Bring up our own lifecycle and expose it (plus the SavedStateRegistry the
+        // Maps SDK expects) on the view tree so the v11 renderer can start. See the
+        // note on lifecycleRegistry above for why we don't rely on the Activity.
+        savedStateRegistryController.performAttach()
+        savedStateRegistryController.performRestore(null)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        root.setViewTreeLifecycleOwner(this)
+        root.setViewTreeSavedStateRegistryOwner(this)
+        mapView.setViewTreeLifecycleOwner(this)
+        mapView.setViewTreeSavedStateRegistryOwner(this)
+        // Drive the lifecycle to RESUMED only while the view is actually attached to
+        // a window, so the GL surface is rendering exactly when it is on screen.
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.CREATED
+                }
+            }
+        })
+        if (root.isAttachedToWindow) {
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         }
         channel.setMethodCallHandler(this)
         events.setStreamHandler(this)
@@ -258,11 +295,9 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
         MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
         MapboxNavigationApp.current()?.stopTripSession()
-        // Mirror the attach() in initializeNavigationSdk; otherwise each opened
-        // navigation view leaks its Activity through the retained lifecycle owner.
-        (activity as? LifecycleOwner)?.let { owner ->
-            MapboxNavigationApp.detach(owner)
-        }
+        // Mirror the attach() in initializeNavigationSdk so the navigation app
+        // releases this view's lifecycle owner instead of leaking it.
+        MapboxNavigationApp.detach(this)
         speechApi?.cancel()
         voiceInstructionsPlayer?.shutdown()
         routeLineApi.cancel()
@@ -270,7 +305,9 @@ class EmbeddedNavigationMapView(
         channel.setMethodCallHandler(null)
         events.setStreamHandler(null)
         eventSink = null
-        mapView.onDestroy()
+        // Tear the lifecycle down last; this drives MapView.onStop/onDestroy and
+        // releases the GL surface and any lifecycle-scoped resources.
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
     }
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
@@ -591,9 +628,7 @@ class EmbeddedNavigationMapView(
                 NavigationOptions.Builder(context.applicationContext).build()
             }
         }
-        (activity as? LifecycleOwner)?.let { owner ->
-            MapboxNavigationApp.attach(owner)
-        }
+        MapboxNavigationApp.attach(this)
 
         val language = options["language"] as? String ?: "en"
 
