@@ -1,3 +1,9 @@
+## 1.1.0
+* Maintained by NabuxAi.
+* Android: Mapbox Navigation SDK v3 (Maps SDK v11) is now the default; removed the `BIKO_MAPBOX_NAV_V3` build flag.
+* Android: migrated to declarative Kotlin/Android Gradle plugins, Java 17, and the stable Navigation SDK 3.20.0.
+* Stopped tracking generated `build/` artifacts.
+
 ## 1.0.1
 * Expose `currentSpeed` (meters/second) on `RouteProgressEvent` for Android and iOS.
 * Send the `arrived` flag on Android route progress events for parity with iOS.
