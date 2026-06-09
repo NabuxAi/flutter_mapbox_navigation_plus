@@ -56,6 +56,22 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
   double? _distanceRemaining, _durationRemaining;
   double? _currentSpeed;
   String? _offlineStatus;
+
+  // Map style switcher (recreates the embedded view with the chosen style).
+  int _mapKey = 0;
+  String _selectedStyle = 'Standard';
+  static const Map<String, String?> _mapStyles = <String, String?>{
+    'Standard': 'mapbox://styles/mapbox/standard',
+    'Streets': 'mapbox://styles/mapbox/streets-v12',
+    'Outdoors': 'mapbox://styles/mapbox/outdoors-v12',
+    'Light': 'mapbox://styles/mapbox/light-v11',
+    'Dark': 'mapbox://styles/mapbox/dark-v11',
+    'Satellite': 'mapbox://styles/mapbox/satellite-v9',
+    'Satellite Streets': 'mapbox://styles/mapbox/satellite-streets-v12',
+    'Navigation Day': 'mapbox://styles/mapbox/navigation-day-v1',
+    'Navigation Night': 'mapbox://styles/mapbox/navigation-night-v1',
+  };
+
   MapBoxNavigationViewController? _controller;
   bool _routeBuilt = false;
   bool _isNavigating = false;
@@ -203,6 +219,39 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
                           style: TextStyle(color: Colors.white),
                           textAlign: TextAlign.center,
                         )),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: <Widget>[
+                          const Text('Map style: '),
+                          const SizedBox(width: 10),
+                          DropdownButton<String>(
+                            value: _selectedStyle,
+                            items: _mapStyles.keys
+                                .map((s) => DropdownMenuItem<String>(
+                                      value: s,
+                                      child: Text(s),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedStyle = value;
+                                _navigationOption.mapStyleUrlDay =
+                                    _mapStyles[value];
+                                _navigationOption.mapStyleUrlNight =
+                                    _mapStyles[value];
+                                // Force the embedded view to rebuild with the
+                                // new style.
+                                _mapKey++;
+                                _routeBuilt = false;
+                                _isNavigating = false;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     Row(
@@ -399,6 +448,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
               child: Container(
                 color: Colors.grey,
                 child: MapBoxNavigationView(
+                    key: ValueKey<int>(_mapKey),
                     options: _navigationOption,
                     onRouteEvent: _onEmbeddedRouteEvent,
                     onCreated:
