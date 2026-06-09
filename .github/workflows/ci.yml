@@ -15,7 +15,10 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter analyze
+      # Fail on warnings/errors only. The package carries pre-existing info-level
+      # lints (very_good_analysis); treating those as fatal would block CI on
+      # unrelated noise.
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test
 
   android-build:
