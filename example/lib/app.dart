@@ -55,6 +55,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
   bool _isMultipleStop = false;
   double? _distanceRemaining, _durationRemaining;
   double? _currentSpeed;
+  String? _offlineStatus;
   MapBoxNavigationViewController? _controller;
   bool _routeBuilt = false;
   bool _isNavigating = false;
@@ -272,6 +273,65 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
                     Container(
                       color: Colors.grey,
                       width: double.infinity,
+                      child: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: (Text(
+                          "Offline Maps & Routing (Android)",
+                          style: TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        )),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          child: const Text("Download"),
+                          onPressed: () async {
+                            // A box around the embedded A→B route (San Francisco).
+                            final region = OfflineRegion.fromBounds(
+                              id: 'sf-demo',
+                              southWestLat: 37.75,
+                              southWestLng: -122.45,
+                              northEastLat: 37.79,
+                              northEastLng: -122.42,
+                              maxZoom: 14,
+                            );
+                            setState(() => _offlineStatus = 'Starting download…');
+                            await MapBoxNavigation.instance
+                                .downloadOfflineRegion(region);
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          child: const Text("List"),
+                          onPressed: () async {
+                            final regions = await MapBoxNavigation.instance
+                                .getOfflineRegions();
+                            setState(() => _offlineStatus =
+                                'Downloaded regions: ${regions.join(', ')}');
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          child: const Text("Remove"),
+                          onPressed: () async {
+                            await MapBoxNavigation.instance
+                                .removeOfflineRegion('sf-demo');
+                          },
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Text(
+                        _offlineStatus ?? "Offline status here",
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Container(
+                      color: Colors.grey,
+                      width: double.infinity,
                       child: Padding(
                         padding: const EdgeInsets.all(10),
                         child: (Text(
@@ -394,6 +454,24 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
           _routeBuilt = false;
           _isNavigating = false;
         });
+        break;
+      case MapBoxEvent.offline_region_progress:
+        final data = e.data as Map<String, dynamic>;
+        final progress = (data['progress'] as num?)?.toDouble() ?? 0;
+        _offlineStatus =
+            'Downloading ${data['id']}: ${progress.toStringAsFixed(0)}%';
+        break;
+      case MapBoxEvent.offline_region_complete:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Region ${data['id']} ready (offline)';
+        break;
+      case MapBoxEvent.offline_region_error:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Offline error: ${data['message']}';
+        break;
+      case MapBoxEvent.offline_region_removed:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Region ${data['id']} removed';
         break;
       default:
         break;
