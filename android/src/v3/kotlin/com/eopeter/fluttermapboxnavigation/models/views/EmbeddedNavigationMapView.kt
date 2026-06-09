@@ -497,6 +497,7 @@ class EmbeddedNavigationMapView(
         )
     }
 
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
     private fun startTripSession(
         navigation: com.mapbox.navigation.core.MapboxNavigation,
         simulate: Boolean = false
@@ -512,6 +513,7 @@ class EmbeddedNavigationMapView(
         }
     }
 
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
     private fun startSimulation(
         navigation: com.mapbox.navigation.core.MapboxNavigation,
         route: NavigationRoute
@@ -526,6 +528,7 @@ class EmbeddedNavigationMapView(
         replayer.play()
     }
 
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
     private fun stopSimulation() {
         MapboxNavigationApp.current()?.mapboxReplayer?.apply {
             stop()
