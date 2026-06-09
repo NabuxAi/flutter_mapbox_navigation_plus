@@ -94,6 +94,28 @@ abstract class FlutterMapboxNavigationPlatform extends PlatformInterface {
     );
   }
 
+  /// Downloads an offline [region] (map tiles + routing tiles). Progress is
+  /// reported through the route event stream as `offline_region_*` events.
+  Future<bool?> downloadOfflineRegion(OfflineRegion region) async {
+    throw UnimplementedError(
+      'downloadOfflineRegion() has not been implemented.',
+    );
+  }
+
+  /// Removes a previously downloaded offline region by [id].
+  Future<bool?> removeOfflineRegion(String id) async {
+    throw UnimplementedError(
+      'removeOfflineRegion() has not been implemented.',
+    );
+  }
+
+  /// Returns the ids of all downloaded offline regions.
+  Future<List<String>> getOfflineRegions() async {
+    throw UnimplementedError(
+      'getOfflineRegions() has not been implemented.',
+    );
+  }
+
   /// Event listener
   Future<dynamic> registerRouteEventListener(
     ValueSetter<RouteEvent> listener,

@@ -55,6 +55,23 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
   bool _isMultipleStop = false;
   double? _distanceRemaining, _durationRemaining;
   double? _currentSpeed;
+  String? _offlineStatus;
+
+  // Map style switcher (recreates the embedded view with the chosen style).
+  int _mapKey = 0;
+  String _selectedStyle = 'Standard';
+  static const Map<String, String?> _mapStyles = <String, String?>{
+    'Standard': 'mapbox://styles/mapbox/standard',
+    'Streets': 'mapbox://styles/mapbox/streets-v12',
+    'Outdoors': 'mapbox://styles/mapbox/outdoors-v12',
+    'Light': 'mapbox://styles/mapbox/light-v11',
+    'Dark': 'mapbox://styles/mapbox/dark-v11',
+    'Satellite': 'mapbox://styles/mapbox/satellite-v9',
+    'Satellite Streets': 'mapbox://styles/mapbox/satellite-streets-v12',
+    'Navigation Day': 'mapbox://styles/mapbox/navigation-day-v1',
+    'Navigation Night': 'mapbox://styles/mapbox/navigation-night-v1',
+  };
+
   MapBoxNavigationViewController? _controller;
   bool _routeBuilt = false;
   bool _isNavigating = false;
@@ -204,6 +221,39 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
                         )),
                       ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: <Widget>[
+                          const Text('Map style: '),
+                          const SizedBox(width: 10),
+                          DropdownButton<String>(
+                            value: _selectedStyle,
+                            items: _mapStyles.keys
+                                .map((s) => DropdownMenuItem<String>(
+                                      value: s,
+                                      child: Text(s),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedStyle = value;
+                                _navigationOption.mapStyleUrlDay =
+                                    _mapStyles[value];
+                                _navigationOption.mapStyleUrlNight =
+                                    _mapStyles[value];
+                                // Force the embedded view to rebuild with the
+                                // new style.
+                                _mapKey++;
+                                _routeBuilt = false;
+                                _isNavigating = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -267,6 +317,65 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
                           "Long-Press Embedded Map to Set Destination",
                           textAlign: TextAlign.center,
                         ),
+                      ),
+                    ),
+                    Container(
+                      color: Colors.grey,
+                      width: double.infinity,
+                      child: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: (Text(
+                          "Offline Maps & Routing (Android)",
+                          style: TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        )),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          child: const Text("Download"),
+                          onPressed: () async {
+                            // A box around the embedded A→B route (San Francisco).
+                            final region = OfflineRegion.fromBounds(
+                              id: 'sf-demo',
+                              southWestLat: 37.75,
+                              southWestLng: -122.45,
+                              northEastLat: 37.79,
+                              northEastLng: -122.42,
+                              maxZoom: 14,
+                            );
+                            setState(() => _offlineStatus = 'Starting download…');
+                            await MapBoxNavigation.instance
+                                .downloadOfflineRegion(region);
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          child: const Text("List"),
+                          onPressed: () async {
+                            final regions = await MapBoxNavigation.instance
+                                .getOfflineRegions();
+                            setState(() => _offlineStatus =
+                                'Downloaded regions: ${regions.join(', ')}');
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          child: const Text("Remove"),
+                          onPressed: () async {
+                            await MapBoxNavigation.instance
+                                .removeOfflineRegion('sf-demo');
+                          },
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Text(
+                        _offlineStatus ?? "Offline status here",
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     Container(
@@ -339,6 +448,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
               child: Container(
                 color: Colors.grey,
                 child: MapBoxNavigationView(
+                    key: ValueKey<int>(_mapKey),
                     options: _navigationOption,
                     onRouteEvent: _onEmbeddedRouteEvent,
                     onCreated:
@@ -394,6 +504,24 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
           _routeBuilt = false;
           _isNavigating = false;
         });
+        break;
+      case MapBoxEvent.offline_region_progress:
+        final data = e.data as Map<String, dynamic>;
+        final progress = (data['progress'] as num?)?.toDouble() ?? 0;
+        _offlineStatus =
+            'Downloading ${data['id']}: ${progress.toStringAsFixed(0)}%';
+        break;
+      case MapBoxEvent.offline_region_complete:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Region ${data['id']} ready (offline)';
+        break;
+      case MapBoxEvent.offline_region_error:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Offline error: ${data['message']}';
+        break;
+      case MapBoxEvent.offline_region_removed:
+        final data = e.data as Map<String, dynamic>;
+        _offlineStatus = 'Region ${data['id']} removed';
         break;
       default:
         break;

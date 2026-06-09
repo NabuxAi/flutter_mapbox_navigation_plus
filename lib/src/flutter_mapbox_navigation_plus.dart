@@ -104,6 +104,28 @@ class MapBoxNavigation {
     return FlutterMapboxNavigationPlatform.instance.enableOfflineRouting();
   }
 
+  /// Downloads an offline [region] so both the map and routing work without a
+  /// network connection.
+  ///
+  /// Progress is delivered through [registerRouteEventListener] as
+  /// `offline_region_progress`, `offline_region_complete` and
+  /// `offline_region_error` events, each carrying a data map with the region
+  /// `id` (and `progress` for progress events).
+  Future<bool?> downloadOfflineRegion(OfflineRegion region) async {
+    return FlutterMapboxNavigationPlatform.instance
+        .downloadOfflineRegion(region);
+  }
+
+  /// Removes a previously downloaded offline region by [id].
+  Future<bool?> removeOfflineRegion(String id) async {
+    return FlutterMapboxNavigationPlatform.instance.removeOfflineRegion(id);
+  }
+
+  /// Returns the ids of all downloaded offline regions.
+  Future<List<String>> getOfflineRegions() async {
+    return FlutterMapboxNavigationPlatform.instance.getOfflineRegions();
+  }
+
   /// Event listener for RouteEvents
   Future<dynamic> registerRouteEventListener(
     ValueSetter<RouteEvent> listener,

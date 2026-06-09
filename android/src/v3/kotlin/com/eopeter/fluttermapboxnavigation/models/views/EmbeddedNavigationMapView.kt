@@ -8,8 +8,12 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.eopeter.fluttermapboxnavigation.FlutterMapboxNavigationPlugin
@@ -37,6 +41,7 @@ import com.mapbox.navigation.base.trip.model.RouteLegProgress
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.mapbox.navigation.core.arrival.ArrivalObserver
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
+import com.mapbox.navigation.core.replay.route.ReplayRouteMapper
 import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
@@ -74,7 +79,28 @@ class EmbeddedNavigationMapView(
     messenger: BinaryMessenger,
     viewId: Int,
     private val args: Any?
-) : PlatformView, MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
+) : PlatformView,
+    MethodChannel.MethodCallHandler,
+    EventChannel.StreamHandler,
+    LifecycleOwner,
+    SavedStateRegistryOwner {
+
+    // Maps SDK v11 drives its GL renderer from the ViewTreeLifecycleOwner it
+    // resolves at attach time. Inside a Flutter (Hybrid Composition) PlatformView
+    // the hosting Activity is not guaranteed to be a LifecycleOwner (e.g. when the
+    // app uses FlutterActivity instead of FlutterFragmentActivity), and even when
+    // it is, the attach timing can leave the map without start/resume callbacks ->
+    // the surface never draws and the user sees a black map while the ornaments
+    // (logo/compass/scale) still render. Owning the lifecycle here and driving it
+    // from the view's window-attach state makes rendering independent of the host.
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
 
     private val root = FrameLayout(context)
     private val mapView = MapView(context)
@@ -109,6 +135,7 @@ class EmbeddedNavigationMapView(
 
     private var speechApi: MapboxSpeechApi? = null
     private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
+    private val replayRouteMapper = ReplayRouteMapper()
 
     private val voiceInstructionsPlayerCallback =
         com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer<SpeechAnnouncement> { announcement ->
@@ -221,19 +248,31 @@ class EmbeddedNavigationMapView(
 
     init {
         root.addView(mapView)
-        // Maps SDK v11 only starts its GL renderer once the MapView can resolve a
-        // ViewTreeLifecycleOwner and receive start/resume callbacks. A Flutter
-        // (Hybrid Composition) PlatformView tree exposes none, so without this the
-        // map surface never draws and the user sees a black map even though the
-        // ornaments (logo/compass/scale) and navigation events work. Wire the
-        // hosting Activity's lifecycle onto the view tree to drive rendering.
-        (activity as? LifecycleOwner)?.let { owner ->
-            root.setViewTreeLifecycleOwner(owner)
-            mapView.setViewTreeLifecycleOwner(owner)
-        }
-        (activity as? SavedStateRegistryOwner)?.let { owner ->
-            root.setViewTreeSavedStateRegistryOwner(owner)
-            mapView.setViewTreeSavedStateRegistryOwner(owner)
+        // Bring up our own lifecycle and expose it (plus the SavedStateRegistry the
+        // Maps SDK expects) on the view tree so the v11 renderer can start. See the
+        // note on lifecycleRegistry above for why we don't rely on the Activity.
+        savedStateRegistryController.performAttach()
+        savedStateRegistryController.performRestore(null)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        root.setViewTreeLifecycleOwner(this)
+        root.setViewTreeSavedStateRegistryOwner(this)
+        mapView.setViewTreeLifecycleOwner(this)
+        mapView.setViewTreeSavedStateRegistryOwner(this)
+        // Drive the lifecycle to RESUMED only while the view is actually attached to
+        // a window, so the GL surface is rendering exactly when it is on screen.
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.CREATED
+                }
+            }
+        })
+        if (root.isAttachedToWindow) {
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         }
         channel.setMethodCallHandler(this)
         events.setStreamHandler(this)
@@ -257,12 +296,11 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterBannerInstructionsObserver(bannerInstructionObserver)
         MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
         MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
+        stopSimulation()
         MapboxNavigationApp.current()?.stopTripSession()
-        // Mirror the attach() in initializeNavigationSdk; otherwise each opened
-        // navigation view leaks its Activity through the retained lifecycle owner.
-        (activity as? LifecycleOwner)?.let { owner ->
-            MapboxNavigationApp.detach(owner)
-        }
+        // Mirror the attach() in initializeNavigationSdk so the navigation app
+        // releases this view's lifecycle owner instead of leaking it.
+        MapboxNavigationApp.detach(this)
         speechApi?.cancel()
         voiceInstructionsPlayer?.shutdown()
         routeLineApi.cancel()
@@ -270,7 +308,9 @@ class EmbeddedNavigationMapView(
         channel.setMethodCallHandler(null)
         events.setStreamHandler(null)
         eventSink = null
-        mapView.onDestroy()
+        // Tear the lifecycle down last; this drives MapView.onStop/onDestroy and
+        // releases the GL surface and any lifecycle-scoped resources.
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
     }
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
@@ -312,8 +352,15 @@ class EmbeddedNavigationMapView(
                 val routes = currentRoutes
                 val navigation = MapboxNavigationApp.current()
                 if (!routes.isNullOrEmpty() && navigation != null) {
+                    // A fresh navigation run never starts in the "arrived" state;
+                    // reset in case the same view is restarted without rebuilding.
+                    hasArrived = false
+                    val simulate = options["simulateRoute"] as? Boolean ?: false
                     navigation.setNavigationRoutes(routes)
-                    startTripSession(navigation)
+                    startTripSession(navigation, simulate)
+                    if (simulate) {
+                        startSimulation(navigation, routes.first())
+                    }
                     navigationCamera.requestNavigationCameraToFollowing()
                     sendEvent("navigation_running")
                     result.success(true)
@@ -325,6 +372,7 @@ class EmbeddedNavigationMapView(
             "clearRoute",
             "finishNavigation" -> {
                 currentRoutes = null
+                stopSimulation()
                 MapboxNavigationApp.current()?.setNavigationRoutes(emptyList())
                 MapboxNavigationApp.current()?.stopTripSession()
                 viewportDataSource.clearRouteData()
@@ -346,6 +394,7 @@ class EmbeddedNavigationMapView(
                 result.success(true)
             }
             "stopNavigation" -> {
+                stopSimulation()
                 MapboxNavigationApp.current()?.stopTripSession()
                 sendEvent("navigation_cancelled")
                 result.success(true)
@@ -448,10 +497,43 @@ class EmbeddedNavigationMapView(
         )
     }
 
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
     private fun startTripSession(
-        navigation: com.mapbox.navigation.core.MapboxNavigation
+        navigation: com.mapbox.navigation.core.MapboxNavigation,
+        simulate: Boolean = false
     ) {
-        navigation.startTripSession()
+        if (simulate) {
+            // Drive the puck along the route from a replayed location stream
+            // instead of the device GPS. Without this, `simulateRoute` was a no-op
+            // and on an emulator (no real movement) navigation could behave as if
+            // the destination had already been reached.
+            navigation.startReplayTripSession()
+        } else {
+            navigation.startTripSession()
+        }
+    }
+
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
+    private fun startSimulation(
+        navigation: com.mapbox.navigation.core.MapboxNavigation,
+        route: NavigationRoute
+    ) {
+        val replayer = navigation.mapboxReplayer
+        replayer.stop()
+        replayer.clearEvents()
+        val replayEvents = replayRouteMapper.mapDirectionsRouteGeometry(route.directionsRoute)
+        if (replayEvents.isEmpty()) return
+        replayer.pushEvents(replayEvents)
+        replayer.seekTo(replayEvents.first())
+        replayer.play()
+    }
+
+    @OptIn(com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI::class)
+    private fun stopSimulation() {
+        MapboxNavigationApp.current()?.mapboxReplayer?.apply {
+            stop()
+            clearEvents()
+        }
     }
 
     private fun navigationProfile(arguments: Map<*, *>): String {
@@ -586,14 +668,19 @@ class EmbeddedNavigationMapView(
     }
 
     private fun initializeNavigationSdk(context: Context) {
+        // Ensure the shared offline tile store exists, then point routing at it so
+        // downloaded regions can serve directions without a network connection.
+        com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
+            .initialize(context.applicationContext)
         if (!MapboxNavigationApp.isSetup()) {
             MapboxNavigationApp.setup {
-                NavigationOptions.Builder(context.applicationContext).build()
+                val builder = NavigationOptions.Builder(context.applicationContext)
+                com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
+                    .configureRoutingTiles(builder)
+                builder.build()
             }
         }
-        (activity as? LifecycleOwner)?.let { owner ->
-            MapboxNavigationApp.attach(owner)
-        }
+        MapboxNavigationApp.attach(this)
 
         val language = options["language"] as? String ?: "en"
 
