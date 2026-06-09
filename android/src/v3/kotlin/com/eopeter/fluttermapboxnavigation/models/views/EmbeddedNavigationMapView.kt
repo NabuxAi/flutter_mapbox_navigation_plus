@@ -41,6 +41,7 @@ import com.mapbox.navigation.base.trip.model.RouteLegProgress
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.mapbox.navigation.core.arrival.ArrivalObserver
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
+import com.mapbox.navigation.core.replay.route.ReplayRouteMapper
 import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
@@ -134,6 +135,7 @@ class EmbeddedNavigationMapView(
 
     private var speechApi: MapboxSpeechApi? = null
     private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
+    private val replayRouteMapper = ReplayRouteMapper()
 
     private val voiceInstructionsPlayerCallback =
         com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer<SpeechAnnouncement> { announcement ->
@@ -294,6 +296,7 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterBannerInstructionsObserver(bannerInstructionObserver)
         MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
         MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
+        stopSimulation()
         MapboxNavigationApp.current()?.stopTripSession()
         // Mirror the attach() in initializeNavigationSdk so the navigation app
         // releases this view's lifecycle owner instead of leaking it.
@@ -349,8 +352,15 @@ class EmbeddedNavigationMapView(
                 val routes = currentRoutes
                 val navigation = MapboxNavigationApp.current()
                 if (!routes.isNullOrEmpty() && navigation != null) {
+                    // A fresh navigation run never starts in the "arrived" state;
+                    // reset in case the same view is restarted without rebuilding.
+                    hasArrived = false
+                    val simulate = options["simulateRoute"] as? Boolean ?: false
                     navigation.setNavigationRoutes(routes)
-                    startTripSession(navigation)
+                    startTripSession(navigation, simulate)
+                    if (simulate) {
+                        startSimulation(navigation, routes.first())
+                    }
                     navigationCamera.requestNavigationCameraToFollowing()
                     sendEvent("navigation_running")
                     result.success(true)
@@ -362,6 +372,7 @@ class EmbeddedNavigationMapView(
             "clearRoute",
             "finishNavigation" -> {
                 currentRoutes = null
+                stopSimulation()
                 MapboxNavigationApp.current()?.setNavigationRoutes(emptyList())
                 MapboxNavigationApp.current()?.stopTripSession()
                 viewportDataSource.clearRouteData()
@@ -383,6 +394,7 @@ class EmbeddedNavigationMapView(
                 result.success(true)
             }
             "stopNavigation" -> {
+                stopSimulation()
                 MapboxNavigationApp.current()?.stopTripSession()
                 sendEvent("navigation_cancelled")
                 result.success(true)
@@ -486,9 +498,39 @@ class EmbeddedNavigationMapView(
     }
 
     private fun startTripSession(
-        navigation: com.mapbox.navigation.core.MapboxNavigation
+        navigation: com.mapbox.navigation.core.MapboxNavigation,
+        simulate: Boolean = false
     ) {
-        navigation.startTripSession()
+        if (simulate) {
+            // Drive the puck along the route from a replayed location stream
+            // instead of the device GPS. Without this, `simulateRoute` was a no-op
+            // and on an emulator (no real movement) navigation could behave as if
+            // the destination had already been reached.
+            navigation.startReplayTripSession()
+        } else {
+            navigation.startTripSession()
+        }
+    }
+
+    private fun startSimulation(
+        navigation: com.mapbox.navigation.core.MapboxNavigation,
+        route: NavigationRoute
+    ) {
+        val replayer = navigation.mapboxReplayer
+        replayer.stop()
+        replayer.clearEvents()
+        val replayEvents = replayRouteMapper.mapDirectionsRouteGeometry(route.directionsRoute)
+        if (replayEvents.isEmpty()) return
+        replayer.pushEvents(replayEvents)
+        replayer.seekTo(replayEvents.first())
+        replayer.play()
+    }
+
+    private fun stopSimulation() {
+        MapboxNavigationApp.current()?.mapboxReplayer?.apply {
+            stop()
+            clearEvents()
+        }
     }
 
     private fun navigationProfile(arguments: Map<*, *>): String {
