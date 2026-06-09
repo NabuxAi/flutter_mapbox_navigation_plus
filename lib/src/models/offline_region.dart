@@ -1,5 +1,3 @@
-// ignore_for_file: public_member_api_docs
-
 /// Describes an offline region to download (map tiles + routing tiles).
 ///
 /// The region is an arbitrary polygon supplied as its outer ring. Both the map

@@ -19,6 +19,16 @@ class MockFlutterMapboxNavigationPlatform
   Future<bool?> enableOfflineRouting() => Future.value(true);
 
   @override
+  Future<bool?> downloadOfflineRegion(OfflineRegion region) =>
+      Future.value(true);
+
+  @override
+  Future<bool?> removeOfflineRegion(String id) => Future.value(true);
+
+  @override
+  Future<List<String>> getOfflineRegions() => Future.value(<String>[]);
+
+  @override
   Future<bool?> finishNavigation() => Future.value(true);
 
   @override
