@@ -53,6 +53,8 @@ android {
         targetSdkVersion 33
         multiDexEnabled true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Ship ProGuard/R8 keep + dontwarn rules to consuming apps that minify.
+        consumerProguardFiles 'consumer-rules.pro'
     }
 
     lintOptions {
