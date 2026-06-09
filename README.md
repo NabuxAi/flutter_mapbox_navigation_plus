@@ -94,7 +94,7 @@ This fork tracks the upstream package while modernizing the Android toolchain an
    }
    ```
 
-5. This fork builds against Java 17 and the Mapbox Navigation SDK v3 by default. Make sure your app uses a compatible Android Gradle Plugin and a JDK 17 toolchain.
+5. This fork builds against Java 17 and the Mapbox Navigation SDK v3 by default. Make sure your app uses a modern Android Gradle Plugin (8.6+), Gradle 8.9+, and a JDK 17 toolchain, and set `compileSdk 35` plus Java/Kotlin 17 in your app's `android/app/build.gradle`. See the `example/` app for a reference configuration.
 
 > [!WARNING]
 > Do not add `mapbox_maps_flutter` alongside this package in the same app. Doing so can cause Android duplicate-class checks to fail because of conflicting Maps SDK versions. See [MIGRATION_V3.md](MIGRATION_V3.md).
