@@ -1,5 +1,6 @@
 ## 1.1.0
 * Maintained by NabuxAi.
+* Android: implemented full-screen turn-by-turn navigation (`startNavigation`, `startFreeDrive`, `addWayPoints`) via a dedicated NavigationActivity — previously v3 only supported embedded navigation.
 * Android: implemented `simulateRoute` via a replay trip session so the puck drives along the route.
 * Android: fixed the embedded navigation map rendering black by owning the MapView lifecycle.
 * Android: added offline maps & offline routing — `downloadOfflineRegion`, `removeOfflineRegion`, `getOfflineRegions` with a shared tile store and progress events.

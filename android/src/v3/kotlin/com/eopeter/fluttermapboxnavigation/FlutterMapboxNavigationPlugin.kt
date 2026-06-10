@@ -2,9 +2,11 @@ package com.eopeter.fluttermapboxnavigation
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import com.eopeter.fluttermapboxnavigation.activity.NavigationActivity
 import com.eopeter.fluttermapboxnavigation.factory.EmbeddedNavigationViewFactory
 import com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -44,14 +46,44 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
                 sendEvent("navigation_cancelled")
                 result.success(true)
             }
-            "startFreeDrive",
-            "startNavigation",
+            "startFreeDrive" -> {
+                val act = currentActivity
+                if (act == null) {
+                    result.error("NO_CONTEXT", "No activity context available.", null)
+                    return
+                }
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val intent = Intent(act, NavigationActivity::class.java)
+                intent.putExtra("isFreeDrive", true)
+                putNavExtras(intent, args)
+                act.startActivity(intent)
+                result.success(true)
+            }
+            "startNavigation" -> {
+                val act = currentActivity
+                if (act == null) {
+                    result.error("NO_CONTEXT", "No activity context available.", null)
+                    return
+                }
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val (lats, lngs) = waypointArrays(args)
+                if (lats.size < 2) {
+                    result.error("INVALID_WAYPOINTS", "Need at least 2 waypoints.", null)
+                    return
+                }
+                val intent = Intent(act, NavigationActivity::class.java)
+                intent.putExtra("lats", lats)
+                intent.putExtra("lngs", lngs)
+                intent.putExtra("isFreeDrive", false)
+                putNavExtras(intent, args)
+                act.startActivity(intent)
+                result.success(true)
+            }
             "addWayPoints" -> {
-                result.error(
-                    "MAPBOX_NAVIGATION_V3_EMBEDDED_ONLY",
-                    "The v3 fork supports embedded navigation first.",
-                    null
-                )
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val (lats, lngs) = waypointArrays(args)
+                NavigationActivity.active?.addWaypoints(lats, lngs)
+                result.success(true)
             }
             "enableOfflineRouting" -> {
                 val ctx = currentActivity?.applicationContext
@@ -99,6 +131,35 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
             }
             else -> result.notImplemented()
         }
+    }
+
+    /** Extract waypoint latitudes/longitudes from the Flutter `wayPoints` map. */
+    private fun waypointArrays(args: Map<*, *>): Pair<DoubleArray, DoubleArray> {
+        val wayPoints = args["wayPoints"] as? Map<*, *>
+        val lats = ArrayList<Double>()
+        val lngs = ArrayList<Double>()
+        wayPoints?.values?.forEach {
+            val wp = it as? Map<*, *>
+            val lat = wp?.get("Latitude") as? Double
+            val lng = wp?.get("Longitude") as? Double
+            if (lat != null && lng != null) {
+                lats.add(lat)
+                lngs.add(lng)
+            }
+        }
+        return lats.toDoubleArray() to lngs.toDoubleArray()
+    }
+
+    /** Copy the common navigation options onto the full-screen activity intent. */
+    private fun putNavExtras(intent: Intent, args: Map<*, *>) {
+        intent.putExtra("simulateRoute", args["simulateRoute"] as? Boolean ?: false)
+        intent.putExtra("alternatives", args["alternatives"] as? Boolean ?: false)
+        intent.putExtra("voiceEnabled", args["voiceInstructionsEnabled"] as? Boolean ?: true)
+        (args["mode"] as? String)?.let { intent.putExtra("mode", it) }
+        (args["language"] as? String)?.let { intent.putExtra("language", it) }
+        (args["units"] as? String)?.let { intent.putExtra("units", it) }
+        (args["mapStyleUrlDay"] as? String)?.let { intent.putExtra("mapStyleUrlDay", it) }
+        (args["tilt"] as? Double)?.let { intent.putExtra("tilt", it) }
     }
 
     override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
