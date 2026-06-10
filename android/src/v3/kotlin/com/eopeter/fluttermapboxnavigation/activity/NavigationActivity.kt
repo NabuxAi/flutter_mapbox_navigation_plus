@@ -1,13 +1,11 @@
 package com.eopeter.fluttermapboxnavigation.activity
 
-import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.eopeter.fluttermapboxnavigation.FlutterMapboxNavigationPlugin
 import com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
@@ -16,6 +14,7 @@ import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.navigation.base.formatter.DistanceFormatterOptions
 import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
 import com.mapbox.navigation.base.extensions.applyLanguageAndVoiceUnitOptions
 import com.mapbox.navigation.base.options.NavigationOptions
@@ -27,6 +26,7 @@ import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.mapbox.navigation.core.MapboxNavigation
 import com.mapbox.navigation.core.arrival.ArrivalObserver
 import com.mapbox.navigation.core.directions.session.RoutesObserver
+import com.mapbox.navigation.core.formatter.MapboxDistanceFormatter
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.replay.route.ReplayRouteMapper
 import com.mapbox.navigation.core.trip.session.BannerInstructionsObserver
@@ -35,6 +35,15 @@ import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.OffRouteObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
 import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
+import com.mapbox.navigation.tripdata.maneuver.api.MapboxManeuverApi
+import com.mapbox.navigation.tripdata.progress.api.MapboxTripProgressApi
+import com.mapbox.navigation.tripdata.progress.model.DistanceRemainingFormatter
+import com.mapbox.navigation.tripdata.progress.model.EstimatedTimeToArrivalFormatter
+import com.mapbox.navigation.tripdata.progress.model.PercentDistanceTraveledFormatter
+import com.mapbox.navigation.tripdata.progress.model.TimeRemainingFormatter
+import com.mapbox.navigation.tripdata.progress.model.TripProgressUpdateFormatter
+import com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
+import com.mapbox.navigation.ui.components.tripprogress.view.MapboxTripProgressView
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.location.NavigationLocationProvider
@@ -47,9 +56,9 @@ import com.mapbox.navigation.voice.api.MapboxVoiceInstructionsPlayer
 import com.mapbox.navigation.voice.model.SpeechAnnouncement
 import com.mapbox.navigation.voice.model.SpeechError
 import com.mapbox.navigation.voice.model.SpeechValue
+import com.mapbox.navigation.voice.model.SpeechVolume
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.locationcomponent.location
-import org.json.JSONObject
 
 /**
  * Full-screen turn-by-turn navigation for the v3 implementation.
@@ -57,13 +66,18 @@ import org.json.JSONObject
  * Launched from [FlutterMapboxNavigationPlugin] for `startNavigation` /
  * `startFreeDrive`. Being a real Activity, it is its own LifecycleOwner, so the
  * MapView renders without the lifecycle workaround the embedded view needs.
- * Route progress, arrival, voice and banner events are forwarded to Flutter
- * through the plugin's shared event channel.
+ *
+ * Provides the turn-by-turn experience the upstream Drop-In UI did (which was
+ * removed in Navigation SDK v3): a maneuver banner with icons, a trip-progress
+ * bar (ETA / distance / time), spoken voice guidance, route line, a following
+ * camera, plus recenter / mute / end controls. Route, progress, arrival, voice
+ * and banner events are also forwarded to Flutter.
  */
 class NavigationActivity : AppCompatActivity() {
 
     private lateinit var mapView: MapView
-    private lateinit var bannerText: TextView
+    private lateinit var maneuverView: MapboxManeuverView
+    private lateinit var tripProgressView: MapboxTripProgressView
 
     private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
     private lateinit var navigationCamera: NavigationCamera
@@ -73,6 +87,23 @@ class NavigationActivity : AppCompatActivity() {
     )
     private lateinit var routeLineView: MapboxRouteLineView
     private val replayRouteMapper = ReplayRouteMapper()
+
+    private val distanceFormatterOptions by lazy {
+        DistanceFormatterOptions.Builder(this).build()
+    }
+    private val maneuverApi by lazy {
+        MapboxManeuverApi(MapboxDistanceFormatter(distanceFormatterOptions))
+    }
+    private val tripProgressApi by lazy {
+        MapboxTripProgressApi(
+            TripProgressUpdateFormatter.Builder(this)
+                .distanceRemainingFormatter(DistanceRemainingFormatter(distanceFormatterOptions))
+                .timeRemainingFormatter(TimeRemainingFormatter(this))
+                .percentRouteTraveledFormatter(PercentDistanceTraveledFormatter())
+                .estimatedTimeToArrivalFormatter(EstimatedTimeToArrivalFormatter(this))
+                .build()
+        )
+    }
 
     private var currentStyle: Style? = null
     private var hasArrived = false
@@ -102,9 +133,7 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     private val bannerObserver = BannerInstructionsObserver { banner ->
-        val text = banner.primary()?.text() ?: ""
-        bannerText.text = text
-        FlutterMapboxNavigationPlugin.sendEvent("banner_instruction", text)
+        FlutterMapboxNavigationPlugin.sendEvent("banner_instruction", banner.primary()?.text() ?: "")
     }
 
     private val locationObserver = object : LocationObserver {
@@ -148,6 +177,12 @@ class NavigationActivity : AppCompatActivity() {
                 routeLineView.renderRouteLineUpdate(style, result)
             }
         }
+
+        // Maneuver banner (turn icon + instruction + distance).
+        maneuverView.renderManeuvers(maneuverApi.getManeuvers(routeProgress))
+        // Trip progress bar (ETA / distance / time remaining).
+        tripProgressView.render(tripProgressApi.getTripProgress(routeProgress))
+
         FlutterMapboxNavigationPlugin.sendEvent(
             "progress_change",
             mapOf(
@@ -189,7 +224,7 @@ class NavigationActivity : AppCompatActivity() {
         viewportDataSource.options.followingFrameOptions.defaultPitch =
             intent.getDoubleExtra("tilt", 45.0)
         viewportDataSource.followingPadding =
-            com.mapbox.maps.EdgeInsets(140.0 * density, 0.0, 200.0 * density, 0.0)
+            com.mapbox.maps.EdgeInsets(180.0 * density, 0.0, 180.0 * density, 0.0)
 
         ensureNavigationSdk()
         loadStyle()
@@ -213,19 +248,57 @@ class NavigationActivity : AppCompatActivity() {
             )
         )
 
-        bannerText = TextView(this).apply {
-            setBackgroundColor(Color.parseColor("#CC000000"))
-            setTextColor(Color.WHITE)
-            textSize = 16f
-            setPadding(32, 32, 32, 32)
-            text = ""
-        }
+        maneuverView = MapboxManeuverView(this)
         root.addView(
-            bannerText,
+            maneuverView,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.TOP }
+        )
+
+        tripProgressView = MapboxTripProgressView(this)
+        root.addView(
+            tripProgressView,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.BOTTOM }
+        )
+
+        val recenterButton = Button(this).apply {
+            text = "Recenter"
+            setOnClickListener {
+                navigationCamera.requestNavigationCameraToFollowing()
+                FlutterMapboxNavigationPlugin.sendEvent("camera_state_changed", mapOf("state" to "following"))
+            }
+        }
+        root.addView(
+            recenterButton,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = (110 * resources.displayMetrics.density).toInt()
+                marginEnd = (12 * resources.displayMetrics.density).toInt()
+            }
+        )
+
+        val muteButton = Button(this).apply {
+            text = if (voiceEnabled) "Mute" else "Unmute"
+            setOnClickListener { toggleVoice(this) }
+        }
+        root.addView(
+            muteButton,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.START
+                bottomMargin = (110 * resources.displayMetrics.density).toInt()
+                marginStart = (12 * resources.displayMetrics.density).toInt()
+            }
         )
 
         val endButton = Button(this).apply {
@@ -238,11 +311,18 @@ class NavigationActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                bottomMargin = 48
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = (140 * resources.displayMetrics.density).toInt()
+                marginEnd = (12 * resources.displayMetrics.density).toInt()
             }
         )
         return root
+    }
+
+    private fun toggleVoice(button: Button) {
+        voiceEnabled = !voiceEnabled
+        voiceInstructionsPlayer?.volume(SpeechVolume(if (voiceEnabled) 1f else 0f))
+        button.text = if (voiceEnabled) "Mute" else "Unmute"
     }
 
     private fun ensureNavigationSdk() {
@@ -429,6 +509,7 @@ class NavigationActivity : AppCompatActivity() {
             stopTripSession()
         }
         MapboxNavigationApp.detach(this)
+        maneuverApi.cancel()
         speechApi?.cancel()
         voiceInstructionsPlayer?.shutdown()
         routeLineApi.cancel()
