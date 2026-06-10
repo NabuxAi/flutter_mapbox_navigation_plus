@@ -384,9 +384,10 @@ class NavigationActivity : AppCompatActivity() {
     fun addWaypoints(lats: DoubleArray, lngs: DoubleArray) {
         val navigation = MapboxNavigationApp.current() ?: return
         val current = navigation.getNavigationRoutes().firstOrNull() ?: return
-        val existing = current.routeOptions?.coordinatesList()?.toMutableList() ?: return
+        val routeOptions = current.directionsRoute.routeOptions() ?: return
+        val existing = routeOptions.coordinatesList().toMutableList()
         lats.indices.forEach { existing.add(Point.fromLngLat(lngs[it], lats[it])) }
-        val options = current.routeOptions!!.toBuilder().coordinatesList(existing).build()
+        val options = routeOptions.toBuilder().coordinatesList(existing).build()
         navigation.requestRoutes(
             options,
             object : NavigationRouterCallback {
