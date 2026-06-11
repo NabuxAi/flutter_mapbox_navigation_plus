@@ -41,5 +41,6 @@ final class NavigationProviderHolder {
         return current
     }
 
+    @MainActor
     var mapboxNavigation: MapboxNavigation { current.mapboxNavigation }
 }
