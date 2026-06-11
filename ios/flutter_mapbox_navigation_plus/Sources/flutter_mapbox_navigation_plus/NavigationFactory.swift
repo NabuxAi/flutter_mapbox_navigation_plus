@@ -92,7 +92,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
 
         for loc in locations
         {
-            let waypoint = Waypoint(
+            var waypoint = Waypoint(
                 coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
                 name: loc.name
             )
@@ -119,7 +119,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
 
         for loc in locations
         {
-            let waypoint = Waypoint(
+            var waypoint = Waypoint(
                 coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
                 name: loc.name
             )
