@@ -73,6 +73,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         let freeDriveViewController = FreeDriveViewController(
             provider: NavigationProviderHolder.shared.provider(simulating: _simulateRoute),
             mapStyleUrlDay: _mapStyleUrlDay,
+            mapStyleUrlNight: _mapStyleUrlNight,
             zoom: _zoom
         )
         freeDriveViewController.modalPresentationStyle = .fullScreen
@@ -127,14 +128,14 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
             _wayPoints.append(waypoint)
         }
 
-        // v3 has no in-place "add a stop" call on a running session; recompute the
-        // full route through the updated waypoint list and restart guidance.
-        calculateAndPresent(wayPoints: _wayPoints, flutterResult: result)
+        // Recompute the full route through the updated waypoint list. If a trip is
+        // already running this updates it in place (see calculateAndPresent).
+        calculateAndPresent(wayPoints: _wayPoints, isUpdate: true, flutterResult: result)
     }
 
     // MARK: - Routing (v3 async)
 
-    func calculateAndPresent(wayPoints: [Waypoint], flutterResult: @escaping FlutterResult)
+    func calculateAndPresent(wayPoints: [Waypoint], isUpdate: Bool = false, flutterResult: @escaping FlutterResult)
     {
         setNavigationOptions(wayPoints: wayPoints)
         guard let options = _options else {
@@ -153,7 +154,17 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
                     flutterResult("An error occured while calculating the route \(error.localizedDescription)")
                 case .success(let navigationRoutes):
                     self._routes = navigationRoutes
-                    self.presentNavigation(routes: navigationRoutes)
+                    if isUpdate, self._navigationViewController != nil {
+                        // A trip is already on screen — update it in place instead
+                        // of presenting a second NavigationViewController (which
+                        // would fail with "already presenting").
+                        self.mapboxNavigation.tripSession().startActiveGuidance(
+                            with: navigationRoutes,
+                            startLegIndex: 0
+                        )
+                    } else {
+                        self.presentNavigation(routes: navigationRoutes)
+                    }
                     flutterResult(true)
                 }
             }
@@ -186,10 +197,21 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         host.present(navigationViewController, animated: true, completion: nil)
     }
 
-    /// Apply a custom day style URL to the navigation map, if one was supplied.
+    /// Pick the custom style URL to apply for the given appearance: the night
+    /// style in dark mode when one is configured, otherwise the day style.
+    func resolvedMapStyleUrl(for traitCollection: UITraitCollection) -> String? {
+        if traitCollection.userInterfaceStyle == .dark,
+           let night = _mapStyleUrlNight, !night.isEmpty {
+            return night
+        }
+        return _mapStyleUrlDay
+    }
+
+    /// Apply the custom day/night style URL to the navigation map, if supplied.
     func applyCustomStyleIfNeeded(to controller: NavigationViewController)
     {
-        guard let styleUrl = _mapStyleUrlDay, let uri = StyleURI(rawValue: styleUrl) else { return }
+        guard let styleUrl = resolvedMapStyleUrl(for: controller.traitCollection),
+              let uri = StyleURI(rawValue: styleUrl) else { return }
         controller.navigationMapView?.mapView.mapboxMap.mapStyle = MapStyle(uri: uri)
     }
 
