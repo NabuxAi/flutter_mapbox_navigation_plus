@@ -63,6 +63,7 @@ import com.mapbox.navigation.voice.model.SpeechValue
 import com.mapbox.navigation.voice.model.SpeechVolume
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.scalebar.scalebar
 
 /**
  * Full-screen turn-by-turn navigation for the v3 implementation.
@@ -227,6 +228,8 @@ class NavigationActivity : AppCompatActivity() {
         routeLngs = intent.getDoubleArrayExtra("lngs") ?: DoubleArray(0)
 
         mapView = MapView(this)
+        // Hide the scale bar ruler (matches the upstream Drop-In look).
+        mapView.scalebar.enabled = false
         viewportDataSource = MapboxNavigationViewportDataSource(mapView.mapboxMap)
         navigationCamera = NavigationCamera(mapView.mapboxMap, mapView.camera, viewportDataSource)
         routeLineView = MapboxRouteLineView(
