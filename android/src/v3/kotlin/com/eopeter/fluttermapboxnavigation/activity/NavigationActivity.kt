@@ -6,12 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.eopeter.fluttermapboxnavigation.FlutterMapboxNavigationPlugin
 import com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
 import com.mapbox.api.directions.v5.DirectionsCriteria
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
+import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
 import com.mapbox.navigation.base.formatter.DistanceFormatterOptions
@@ -42,7 +44,9 @@ import com.mapbox.navigation.tripdata.progress.model.EstimatedTimeToArrivalForma
 import com.mapbox.navigation.tripdata.progress.model.PercentDistanceTraveledFormatter
 import com.mapbox.navigation.tripdata.progress.model.TimeRemainingFormatter
 import com.mapbox.navigation.tripdata.progress.model.TripProgressUpdateFormatter
+import com.mapbox.navigation.tripdata.speedlimit.api.MapboxSpeedInfoApi
 import com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
+import com.mapbox.navigation.ui.components.speedlimit.view.MapboxSpeedInfoView
 import com.mapbox.navigation.ui.components.tripprogress.view.MapboxTripProgressView
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
@@ -78,6 +82,10 @@ class NavigationActivity : AppCompatActivity() {
     private lateinit var mapView: MapView
     private lateinit var maneuverView: MapboxManeuverView
     private lateinit var tripProgressView: MapboxTripProgressView
+    private lateinit var speedInfoView: MapboxSpeedInfoView
+    private val speedInfoApi by lazy { MapboxSpeedInfoApi() }
+    private var routeLats = DoubleArray(0)
+    private var routeLngs = DoubleArray(0)
 
     private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
     private lateinit var navigationCamera: NavigationCamera
@@ -144,6 +152,11 @@ class NavigationActivity : AppCompatActivity() {
             navigationLocationProvider.changePosition(enhanced, locationMatcherResult.keyPoints)
             viewportDataSource.onLocationChanged(enhanced)
             viewportDataSource.evaluate()
+            // Speed limit / current speed indicator (the "speedometer").
+            speedInfoApi.updatePostedAndCurrentSpeed(
+                locationMatcherResult,
+                distanceFormatterOptions
+            )?.let { speedInfoView.render(it) }
         }
     }
 
@@ -210,6 +223,8 @@ class NavigationActivity : AppCompatActivity() {
         simulate = intent.getBooleanExtra("simulateRoute", false)
         voiceEnabled = intent.getBooleanExtra("voiceEnabled", true)
         val isFreeDrive = intent.getBooleanExtra("isFreeDrive", false)
+        routeLats = intent.getDoubleArrayExtra("lats") ?: DoubleArray(0)
+        routeLngs = intent.getDoubleArrayExtra("lngs") ?: DoubleArray(0)
 
         mapView = MapView(this)
         viewportDataSource = MapboxNavigationViewportDataSource(mapView.mapboxMap)
@@ -217,6 +232,22 @@ class NavigationActivity : AppCompatActivity() {
         routeLineView = MapboxRouteLineView(
             MapboxRouteLineViewOptions.Builder(this).displaySoftGradientForTraffic(true).build()
         )
+
+        // Start the camera on a real location (route origin / supplied initial
+        // point) instead of the default zoomed-out globe, which is slow to load.
+        val initLat = intent.getDoubleExtra("initialLatitude", Double.NaN)
+        val initLng = intent.getDoubleExtra("initialLongitude", Double.NaN)
+        val initZoom = intent.getDoubleExtra("zoom", 15.0)
+        val initialCenter = when {
+            !initLat.isNaN() && !initLng.isNaN() -> Point.fromLngLat(initLng, initLat)
+            routeLats.isNotEmpty() -> Point.fromLngLat(routeLngs[0], routeLats[0])
+            else -> null
+        }
+        if (initialCenter != null) {
+            mapView.mapboxMap.setCamera(
+                CameraOptions.Builder().center(initialCenter).zoom(initZoom).build()
+            )
+        }
 
         setContentView(buildUi())
 
@@ -239,6 +270,7 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     private fun buildUi(): View {
+        val density = resources.displayMetrics.density
         val root = FrameLayout(this)
         root.addView(
             mapView,
@@ -266,54 +298,53 @@ class NavigationActivity : AppCompatActivity() {
             ).apply { gravity = Gravity.BOTTOM }
         )
 
-        val recenterButton = Button(this).apply {
-            text = "Recenter"
-            setOnClickListener {
-                navigationCamera.requestNavigationCameraToFollowing()
-                FlutterMapboxNavigationPlugin.sendEvent("camera_state_changed", mapOf("state" to "following"))
-            }
-        }
+        // Speed limit / current speed indicator (bottom-left, above progress bar).
+        speedInfoView = MapboxSpeedInfoView(this)
         root.addView(
-            recenterButton,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                bottomMargin = (110 * resources.displayMetrics.density).toInt()
-                marginEnd = (12 * resources.displayMetrics.density).toInt()
-            }
-        )
-
-        val muteButton = Button(this).apply {
-            text = if (voiceEnabled) "Mute" else "Unmute"
-            setOnClickListener { toggleVoice(this) }
-        }
-        root.addView(
-            muteButton,
+            speedInfoView,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.BOTTOM or Gravity.START
-                bottomMargin = (110 * resources.displayMetrics.density).toInt()
-                marginStart = (12 * resources.displayMetrics.density).toInt()
+                bottomMargin = (96 * density).toInt()
+                marginStart = (12 * density).toInt()
             }
         )
 
+        // Right-side control stack: mute, recenter, end.
+        val muteButton = Button(this).apply {
+            text = if (voiceEnabled) "Mute" else "Unmute"
+            setOnClickListener { toggleVoice(this) }
+        }
+        val recenterButton = Button(this).apply {
+            text = "Recenter"
+            setOnClickListener {
+                navigationCamera.requestNavigationCameraToFollowing()
+                FlutterMapboxNavigationPlugin.sendEvent(
+                    "camera_state_changed",
+                    mapOf("state" to "following")
+                )
+            }
+        }
         val endButton = Button(this).apply {
             text = "End"
             setOnClickListener { finishNavigation() }
         }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(muteButton)
+            addView(recenterButton)
+            addView(endButton)
+        }
         root.addView(
-            endButton,
+            controls,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = Gravity.TOP or Gravity.END
-                topMargin = (140 * resources.displayMetrics.density).toInt()
-                marginEnd = (12 * resources.displayMetrics.density).toInt()
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                marginEnd = (12 * density).toInt()
             }
         )
         return root
@@ -377,8 +408,8 @@ class NavigationActivity : AppCompatActivity() {
     }
 
     private fun buildAndStartRoute() {
-        val lats = intent.getDoubleArrayExtra("lats") ?: DoubleArray(0)
-        val lngs = intent.getDoubleArrayExtra("lngs") ?: DoubleArray(0)
+        val lats = routeLats
+        val lngs = routeLngs
         if (lats.size < 2 || lats.size != lngs.size) {
             FlutterMapboxNavigationPlugin.sendEvent("route_build_failed")
             finish()

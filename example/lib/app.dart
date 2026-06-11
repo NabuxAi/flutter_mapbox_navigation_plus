@@ -100,8 +100,11 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
     _navigationOption = MapBoxNavigation.instance.getDefaultOptions();
     _navigationOption.simulateRoute = true;
     _navigationOption.language = "en";
-    //_navigationOption.initialLatitude = 36.1175275;
-    //_navigationOption.initialLongitude = -115.1839524;
+    // Start the map on a real location (near the demo route) instead of the
+    // zoomed-out globe, which is slow to load.
+    _navigationOption.initialLatitude = 37.77440680146262;
+    _navigationOption.initialLongitude = -122.43539772352648;
+    _navigationOption.zoom = 12;
     MapBoxNavigation.instance.registerRouteEventListener(_onEmbeddedRouteEvent);
 
     String? platformVersion;

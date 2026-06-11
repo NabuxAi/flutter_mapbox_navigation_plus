@@ -160,6 +160,9 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
         (args["units"] as? String)?.let { intent.putExtra("units", it) }
         (args["mapStyleUrlDay"] as? String)?.let { intent.putExtra("mapStyleUrlDay", it) }
         (args["tilt"] as? Double)?.let { intent.putExtra("tilt", it) }
+        (args["zoom"] as? Double)?.let { intent.putExtra("zoom", it) }
+        (args["initialLatitude"] as? Double)?.let { intent.putExtra("initialLatitude", it) }
+        (args["initialLongitude"] as? Double)?.let { intent.putExtra("initialLongitude", it) }
     }
 
     override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
