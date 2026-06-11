@@ -64,6 +64,7 @@ import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.scalebar.scalebar
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -249,6 +250,8 @@ class EmbeddedNavigationMapView(
 
     init {
         root.addView(mapView)
+        // Hide the scale bar ruler (matches the upstream Drop-In look).
+        mapView.scalebar.enabled = false
         // Start on the caller-provided location instead of the zoomed-out globe
         // (which is slow to load). Falls back to leaving the default camera.
         (options["initialLatitude"] as? Double)?.let { lat ->
