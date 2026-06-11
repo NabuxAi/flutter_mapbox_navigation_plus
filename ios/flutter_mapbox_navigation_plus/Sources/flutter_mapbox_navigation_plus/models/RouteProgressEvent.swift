@@ -1,7 +1,6 @@
 import Foundation
 import MapboxDirections
-import MapboxNavigation
-import MapboxCoreNavigation
+import MapboxNavigationCore
 
 public class MapBoxRouteProgressEvent : Codable
 {
@@ -46,6 +45,4 @@ public class MapBoxRouteProgressEvent : Codable
         currentLegDistanceRemaining = progress.currentLegProgress.distanceRemaining
         currentStepInstruction = progress.currentLegProgress.currentStep.description
     }
-
-
 }

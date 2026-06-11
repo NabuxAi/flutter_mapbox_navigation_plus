@@ -46,3 +46,29 @@ jobs:
       - name: Build example debug APK (compiles the v3 Kotlin sources)
         working-directory: example
         run: flutter build apk --debug
+
+  ios-build:
+    name: iOS (Navigation SDK v3) build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Configure Mapbox downloads credentials
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+        run: |
+          if [ -z "$MAPBOX_DOWNLOADS_TOKEN" ]; then
+            echo "::error::MAPBOX_DOWNLOADS_TOKEN secret is not set. Add a Mapbox token with the downloads:read scope under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          # Swift Package Manager downloads the Mapbox v3 binaries from
+          # api.mapbox.com, which is authenticated through ~/.netrc.
+          printf 'machine api.mapbox.com\n  login mapbox\n  password %s\n' "$MAPBOX_DOWNLOADS_TOKEN" > "$HOME/.netrc"
+          chmod 600 "$HOME/.netrc"
+      - name: Enable Flutter Swift Package Manager
+        run: flutter config --enable-swift-package-manager
+      - name: Build example (compiles the v3 Swift sources via SPM)
+        working-directory: example
+        run: flutter build ios --debug --no-codesign

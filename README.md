@@ -2,7 +2,7 @@
 
 # flutter_mapbox_navigation_plus
 
-**An updated fork of `flutter_mapbox_navigation`, maintained by [NabuxAi](https://github.com/NabuxAi), with support for the latest Flutter and Gradle versions and the Mapbox Navigation SDK v3 on Android.**
+**An updated fork of `flutter_mapbox_navigation`, maintained by [NabuxAi](https://github.com/NabuxAi), with support for the latest Flutter and Gradle versions and the Mapbox Navigation SDK v3 on both Android and iOS.**
 
 Add turn-by-turn navigation to your Flutter application using Mapbox. Never make your users leave your app when they need to navigate to a location.
 
@@ -22,19 +22,27 @@ Add turn-by-turn navigation to your Flutter application using Mapbox. Never make
 
 ## What's New in This Fork
 
-This fork tracks the upstream package while modernizing the Android toolchain and migrating to the Mapbox Navigation SDK v3. Highlights:
+This fork tracks the upstream package while modernizing the toolchain and migrating to the Mapbox Navigation SDK v3 on both platforms. Highlights:
 
 * **Mapbox Navigation SDK v3 by default on Android** (Maps SDK v11). The Android implementation now always compiles the v3 source set — the previous `BIKO_MAPBOX_NAV_V3` build flag has been removed. See [MIGRATION_V3.md](MIGRATION_V3.md) for details.
+* **Mapbox Navigation SDK v3 on iOS** (Maps SDK v11). The iOS implementation has been rewritten against the v3 API (`MapboxNavigationProvider`, async route requests, `NavigationRoutes`, the v3 `NavigationViewController` and `NavigationMapView`). Because the v3 SDK is distributed **only** via Swift Package Manager, the iOS plugin now ships a `Package.swift` and requires Flutter's Swift Package Manager support. See [MIGRATION_V3.md](MIGRATION_V3.md) and "iOS Configuration" below.
+* **Offline maps & routing on iOS** — a single shared tile store backs both the map renderer and routing, on par with Android.
 * **Modern Android build** — declarative Kotlin/Android Gradle plugins, Java 17, and the stable Navigation SDK 3.20.0.
 * **`currentSpeed` (meters/second)** is now exposed on `RouteProgressEvent` for both Android and iOS.
 * **`arrived` flag** is sent on Android route progress events for parity with iOS.
-* **Origin/destination waypoint markers** are drawn on the embedded iOS map when a route is built.
 * The example app now displays **current speed** and **ETA**.
 
 > [!IMPORTANT]
-> iOS v3 migration is still pending — see [MIGRATION_V3.md](MIGRATION_V3.md) for the current status.
+> iOS now requires a host app that has **Flutter's Swift Package Manager support enabled** and targets **iOS 14+** (a Mapbox Navigation SDK v3 requirement). See "iOS Configuration".
 
 ## iOS Configuration
+
+> [!IMPORTANT]
+> The iOS implementation uses the **Mapbox Navigation SDK v3**, which is distributed exclusively through **Swift Package Manager** (there is no CocoaPods release of v3). Your app must therefore:
+> * **Enable Flutter's Swift Package Manager support**, either globally with `flutter config --enable-swift-package-manager` or per-project. With it enabled, Flutter resolves the SDK from the plugin's `Package.swift` automatically. Requires Flutter 3.24 or newer.
+> * **Target iOS 14.0 or later** (set `IPHONEOS_DEPLOYMENT_TARGET = 14.0` in your Runner target and `platform :ios, '14.0'` in your `Podfile`). v3 does not support older deployment targets.
+>
+> The first SPM resolution downloads the Mapbox binaries from `api.mapbox.com`, which is authenticated through the `~/.netrc` entry described in step 1.
 
 1. Go to your [Mapbox account dashboard](https://account.mapbox.com/) and create an access token that has the `DOWNLOADS:READ` scope. **PLEASE NOTE: This is not the same as your production Mapbox API token. Keep it private and do not place it in any `Info.plist` file.** Create a file named `.netrc` in your home directory if it does not already exist, then add the following lines to the end of the file:
    ```
@@ -234,11 +242,12 @@ await _controller.buildRoute(wayPoints: wayPoints);
 await _controller.startNavigation();
 ```
 
-## Offline Maps & Offline Navigation (Android)
+## Offline Maps & Offline Navigation
 
-The Android v3 implementation can download a region so that **both the map and
-routing work without a network connection**. A single shared tile store backs the
-map renderer and the Navigation SDK, so one download serves both.
+Both the Android and iOS v3 implementations can download a region so that **both
+the map and routing work without a network connection**. A single shared tile
+store backs the map renderer and the Navigation SDK, so one download serves both.
+The Dart API below is identical on both platforms.
 
 Pick the area as an arbitrary polygon (or a bounding box) and listen for progress
 through the normal route event listener:
@@ -295,8 +304,7 @@ await MapBoxNavigation.instance.removeOfflineRegion('muscat');
 ```
 
 > [!NOTE]
-> Higher `maxZoom` values dramatically increase the download size. iOS offline
-> support is not yet implemented (see the roadmap).
+> Higher `maxZoom` values dramatically increase the download size.
 
 ### Additional iOS Configuration
 
@@ -324,9 +332,9 @@ Add the following to your `Info.plist` file:
 * [x] Stream events such as relevant navigation notifications, metrics, current location, etc.
 * [x] Embeddable navigation view
 * [x] Mapbox Navigation SDK v3 on Android
-* [ ] Mapbox Navigation SDK v3 on iOS
+* [x] Mapbox Navigation SDK v3 on iOS
 * [x] Offline maps & routing on Android
-* [ ] Offline maps & routing on iOS
+* [x] Offline maps & routing on iOS
 
 ## Maintainer
 

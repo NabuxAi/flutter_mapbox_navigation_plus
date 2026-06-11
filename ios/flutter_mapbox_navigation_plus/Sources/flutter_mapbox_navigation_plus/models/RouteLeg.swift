@@ -17,7 +17,7 @@ public class MapBoxRouteLeg : Codable
         distance = leg.distance
         expectedTravelTime = leg.expectedTravelTime
         source = Location(name: leg.source?.name ?? "source", latitude: leg.source?.coordinate.latitude, longitude: leg.source?.coordinate.longitude)
-        destination = Location(name: leg.destination?.name ?? "source", latitude: leg.destination?.coordinate.latitude, longitude: leg.destination?.coordinate.longitude)
+        destination = Location(name: leg.destination?.name ?? "destination", latitude: leg.destination?.coordinate.latitude, longitude: leg.destination?.coordinate.longitude)
         for step in leg.steps {
             steps.append(MapBoxRouteStep(step: step))
         }
