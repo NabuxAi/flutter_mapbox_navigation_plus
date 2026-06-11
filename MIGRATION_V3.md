@@ -64,3 +64,7 @@ There is no iOS toolchain in CI by default, so a `macos` job (`ios-build` in
 `.github/workflows/ci.yml`) compiles the example app through SPM. It requires the
 `MAPBOX_DOWNLOADS_TOKEN` secret (a token with the `downloads:read` scope), which is
 written to `~/.netrc` so SPM can fetch the Mapbox binaries.
+
+CI only verifies that the code **compiles**, not its runtime behaviour. Use
+[docs/IOS_MANUAL_TEST.md](docs/IOS_MANUAL_TEST.md) to verify navigation, events
+and offline downloads on a real device.
