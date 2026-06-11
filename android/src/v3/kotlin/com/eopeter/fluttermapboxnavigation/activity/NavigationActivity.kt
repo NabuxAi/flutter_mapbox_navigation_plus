@@ -153,12 +153,10 @@ class NavigationActivity : AppCompatActivity() {
             viewportDataSource.onLocationChanged(enhanced)
             viewportDataSource.evaluate()
             // Speed limit / current speed indicator (the "speedometer").
-            speedInfoView.render(
-                speedInfoApi.updatePostedAndCurrentSpeed(
-                    locationMatcherResult,
-                    distanceFormatterOptions
-                )
-            )
+            speedInfoApi.updatePostedAndCurrentSpeed(
+                locationMatcherResult,
+                distanceFormatterOptions
+            )?.let { speedInfoView.render(it) }
         }
     }
 
