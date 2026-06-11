@@ -20,17 +20,21 @@ let package = Package(
     ],
     dependencies: [
         // Mapbox Navigation SDK v3 (Navigation Core + UIKit drop-in UI).
+        // Pinned to an exact release so resolution is deterministic: an open
+        // range let SPM pair the SDK with a Maps version that does not compile
+        // under the CI toolchain. v3.24.2 pins Maps SDK exactly 11.24.2
+        // (compatible Xcode 16.4 — the CI job selects that Xcode).
         .package(
             url: "https://github.com/mapbox/mapbox-navigation-ios.git",
-            from: "3.1.0"
+            exact: "3.24.2"
         ),
         // Maps SDK v11 — required for the offline manager (OfflineManager,
         // TilesetDescriptorOptions, StylePackLoadOptions) and the embedded
-        // NavigationMapView styling. The exact version is pinned transitively by
-        // the Navigation SDK; this lower bound only makes the module importable.
+        // NavigationMapView styling. Pinned to the exact version the Navigation
+        // SDK above depends on, so both resolve to the same Maps release.
         .package(
             url: "https://github.com/mapbox/mapbox-maps-ios.git",
-            from: "11.0.0"
+            exact: "11.24.2"
         )
     ],
     targets: [
