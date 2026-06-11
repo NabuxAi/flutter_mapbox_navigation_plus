@@ -1,5 +1,7 @@
 import Foundation
 
+/// Event names emitted to the Flutter side. The raw string of each case must
+/// stay in sync with `MapBoxEvent` in `lib/src/models/events.dart`.
 enum MapBoxEventType: String, Codable
 {
     case map_ready
@@ -22,4 +24,10 @@ enum MapBoxEventType: String, Codable
     case standardPoiTapped
     case standardBuildingTapped
     case mapStyleLoaded
+    case camera_state_changed
+    // Offline maps & routing (parity with the Android v3 implementation).
+    case offline_region_progress
+    case offline_region_complete
+    case offline_region_error
+    case offline_region_removed
 }

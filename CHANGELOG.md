@@ -1,3 +1,10 @@
+## 1.2.0
+* iOS: migrated to the Mapbox Navigation SDK v3 (Maps SDK v11) — rewritten against `MapboxNavigationProvider`, async `calculateRoutes`, `NavigationRoutes`, and the v3 `NavigationViewController`/`NavigationMapView`. `isV3` now returns `true` on iOS.
+* iOS: distributed via Swift Package Manager (a `Package.swift` is shipped) because v3 has no CocoaPods release; host apps must enable Flutter's SPM support and target iOS 14+.
+* iOS: added offline maps & offline routing — `downloadOfflineRegion`, `removeOfflineRegion`, `getOfflineRegions` with a shared tile store and `offline_region_*` progress events (parity with Android).
+* iOS: removed the legacy v2-only sources (route selection view, Day/Night style subclasses, stubbed offline routing).
+* CI: added a macOS `ios-build` job that compiles the example app through SPM.
+
 ## 1.1.0
 * Maintained by NabuxAi.
 * Android: implemented full-screen turn-by-turn navigation (`startNavigation`, `startFreeDrive`, `addWayPoints`) via a dedicated NavigationActivity — previously v3 only supported embedded navigation.
