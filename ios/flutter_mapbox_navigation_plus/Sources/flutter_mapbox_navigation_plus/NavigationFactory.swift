@@ -13,10 +13,11 @@ public typealias Waypoint = MapboxDirections.Waypoint
 
 /// Shared base for the full-screen plugin and the embedded platform view.
 ///
-/// Rewritten for Mapbox Navigation SDK v3: routing now goes through
-/// `MapboxNavigationProvider.routingProvider().calculateRoutes(options:)`
-/// (async), navigation is driven by `NavigationViewController(navigationRoutes:)`,
-/// and progress/arrival/dismissal arrive through `NavigationViewControllerDelegate`.
+/// Marked `@MainActor`: the v3 SDK types it drives (`MapboxNavigation`,
+/// `NavigationViewController`, `NavigationMapView`, UIKit) are main-actor
+/// isolated, and Flutter delivers method/stream/platform-view callbacks on the
+/// main thread, so the whole class belongs on the main actor.
+@MainActor
 public class NavigationFactory : NSObject, FlutterStreamHandler
 {
     var _navigationViewController: NavigationViewController? = nil

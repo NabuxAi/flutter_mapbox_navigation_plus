@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 
+@MainActor
 public class FlutterMapboxNavigationViewFactory : NSObject, FlutterPlatformViewFactory
 {
     let messenger: FlutterBinaryMessenger

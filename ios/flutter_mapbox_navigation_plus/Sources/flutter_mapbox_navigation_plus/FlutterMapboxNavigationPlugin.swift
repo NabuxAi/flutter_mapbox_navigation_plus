@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 
 public class FlutterMapboxNavigationPlugin: NavigationFactory, FlutterPlugin {
+    @MainActor
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_mapbox_navigation", binaryMessenger: registrar.messenger())
         let eventChannel = FlutterEventChannel(name: "flutter_mapbox_navigation/events", binaryMessenger: registrar.messenger())
@@ -11,9 +12,13 @@ public class FlutterMapboxNavigationPlugin: NavigationFactory, FlutterPlugin {
         eventChannel.setStreamHandler(instance)
 
         // Route offline_region_* events (worker-thread callbacks) to this
-        // plugin's Flutter event sink as object-payload events.
+        // plugin's Flutter event sink as object-payload events. The callback can
+        // arrive off the main thread, so hop to the main actor before touching
+        // the (main-actor-isolated) plugin instance.
         MapboxOfflineManager.shared.onEvent = { [weak instance] eventType, data in
-            instance?.sendObjectEvent(eventType: eventType, data: data)
+            Task { @MainActor in
+                instance?.sendObjectEvent(eventType: eventType, data: data)
+            }
         }
 
         let viewFactory = FlutterMapboxNavigationViewFactory(messenger: registrar.messenger())
