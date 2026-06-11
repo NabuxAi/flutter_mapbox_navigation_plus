@@ -21,6 +21,7 @@ import com.mapbox.api.directions.v5.DirectionsCriteria
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.api.directions.v5.models.BannerInstructions
 import com.mapbox.geojson.Point
+import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.ClickInteraction
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapView
@@ -248,6 +249,18 @@ class EmbeddedNavigationMapView(
 
     init {
         root.addView(mapView)
+        // Start on the caller-provided location instead of the zoomed-out globe
+        // (which is slow to load). Falls back to leaving the default camera.
+        (options["initialLatitude"] as? Double)?.let { lat ->
+            (options["initialLongitude"] as? Double)?.let { lng ->
+                mapView.mapboxMap.setCamera(
+                    CameraOptions.Builder()
+                        .center(Point.fromLngLat(lng, lat))
+                        .zoom(options["zoom"] as? Double ?: 15.0)
+                        .build()
+                )
+            }
+        }
         // Bring up our own lifecycle and expose it (plus the SavedStateRegistry the
         // Maps SDK expects) on the view tree so the v11 renderer can start. See the
         // note on lifecycleRegistry above for why we don't rely on the Activity.
