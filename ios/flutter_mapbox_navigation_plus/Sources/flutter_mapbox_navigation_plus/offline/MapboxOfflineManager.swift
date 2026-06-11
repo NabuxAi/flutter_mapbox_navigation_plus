@@ -68,7 +68,7 @@ final class MapboxOfflineManager {
 
         let zoomRange = UInt8(max(0, minZoom))...UInt8(max(minZoom, maxZoom))
         let mapsDescriptor = offlineManager.createTilesetDescriptor(
-            for: TilesetDescriptorOptions(styleURI: styleURI, zoomRange: zoomRange)
+            for: TilesetDescriptorOptions(styleURI: styleURI, zoomRange: zoomRange, tilesets: [])
         )
         // Routing tiles for the same area so directions work offline too.
         let navDescriptor = NavigationProviderHolder.shared
