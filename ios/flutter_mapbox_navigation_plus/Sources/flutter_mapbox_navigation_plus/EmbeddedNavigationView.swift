@@ -157,7 +157,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
 
         for loc in locations
         {
-            let waypoint = Waypoint(
+            var waypoint = Waypoint(
                 coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
                 name: loc.name
             )
