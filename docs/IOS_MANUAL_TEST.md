@@ -73,21 +73,20 @@ Use `simulateRoute: true` and two valid waypoints.
 
 ---
 
-## Known limitations / things to watch
+## Notes / things to watch
 
-These are implementation notes surfaced during code review — verify or treat as
-backlog items:
-
-1. **Full-screen free drive has no close button.** `FreeDriveViewController` is
-   presented full-screen with no dismiss control; the user cannot exit it from the
-   native screen. The embedded free-drive path is unaffected.
-2. **`addWayPoints` during an active full-screen trip** recomputes the route and
-   presents a *new* `NavigationViewController`. If one is already presented this
-   can fail with "already presenting". Prefer rebuilding via the embedded flow,
-   or verify this path explicitly if you rely on it.
-3. **Custom night style is not applied.** `mapStyleUrlNight` is parsed but only
-   `mapStyleUrlDay` is applied to the map; day/night switching uses the SDK
-   defaults.
-4. **`on_arrival` delegate.** `Waypoint` is aliased to `MapboxDirections.Waypoint`;
-   confirm `on_arrival` actually fires on the device (it is the one delegate whose
-   type match the compiler cannot fully guarantee).
+1. **Full-screen free drive close button.** `FreeDriveViewController` now shows a
+   close button (top-left) that ends the passive session and dismisses the screen.
+2. **`addWayPoints` during an active full-screen trip** now updates the running
+   trip in place via `tripSession().startActiveGuidance(with:startLegIndex:)`
+   instead of presenting a second `NavigationViewController`. Verify the route
+   updates without a flicker.
+3. **Custom night style.** When `mapStyleUrlNight` is set and the device is in
+   dark mode, it is applied to the full-screen, embedded and free-drive maps; the
+   day style is used otherwise. (During active guidance the SDK may still manage
+   day/night transitions.)
+4. **`on_arrival` delegate — verify on device.** `Waypoint` is aliased to
+   `MapboxDirections.Waypoint`; confirm `on_arrival` fires (the one delegate whose
+   type match the compiler cannot fully guarantee). Final arrival is also exposed
+   via the `arrived` flag on `progress_change`, so the end-of-trip case has a
+   fallback even if the delegate does not fire.

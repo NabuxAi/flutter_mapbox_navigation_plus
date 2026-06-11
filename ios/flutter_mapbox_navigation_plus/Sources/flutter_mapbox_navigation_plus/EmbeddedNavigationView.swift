@@ -104,7 +104,8 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationMapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         _mapInitialized = true
 
-        if let styleUrl = _mapStyleUrlDay, let uri = StyleURI(rawValue: styleUrl) {
+        if let styleUrl = resolvedMapStyleUrl(for: navigationMapView.traitCollection),
+           let uri = StyleURI(rawValue: styleUrl) {
             navigationMapView.mapView.mapboxMap.mapStyle = MapStyle(uri: uri)
         }
 
