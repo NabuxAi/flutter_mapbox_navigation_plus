@@ -9,7 +9,7 @@ import MapboxNavigationUIKit
 /// `Waypoint` is declared in more than one imported Mapbox module under the v3
 /// SDK, which makes the bare name ambiguous (the compiler can't read `[Waypoint]`
 /// as a type). Pin it to the routing type used throughout the plugin.
-typealias Waypoint = MapboxDirections.Waypoint
+public typealias Waypoint = MapboxDirections.Waypoint
 
 /// Shared base for the full-screen plugin and the embedded platform view.
 ///
