@@ -49,9 +49,15 @@ jobs:
 
   ios-build:
     name: iOS (Navigation SDK v3) build
-    runs-on: macos-14
+    # macos-15 provides Xcode 16.4, the toolchain the pinned Mapbox SDK
+    # (Maps 11.24.2) is built and validated against.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select Xcode 16.4 (matches the pinned Mapbox SDK)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

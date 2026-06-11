@@ -1,3 +1,7 @@
+## 1.2.1
+* iOS: pinned the Mapbox SDK to exact versions (Navigation 3.24.2 / Maps 11.24.2) so SPM resolution is deterministic and compiles cleanly; an open version range paired the SDK with a Maps build that failed under the CI Swift compiler.
+* CI: the iOS build job now runs on macOS 15 and selects Xcode 16.4 (the toolchain the pinned Mapbox SDK is validated against).
+
 ## 1.2.0
 * iOS: migrated to the Mapbox Navigation SDK v3 (Maps SDK v11) — rewritten against `MapboxNavigationProvider`, async `calculateRoutes`, `NavigationRoutes`, and the v3 `NavigationViewController`/`NavigationMapView`. `isV3` now returns `true` on iOS.
 * iOS: distributed via Swift Package Manager (a `Package.swift` is shipped) because v3 has no CocoaPods release; host apps must enable Flutter's SPM support and target iOS 14+.
