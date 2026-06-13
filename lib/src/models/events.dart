@@ -28,5 +28,6 @@ enum MapBoxEvent {
   offline_region_progress,
   offline_region_complete,
   offline_region_error,
-  offline_region_removed
+  offline_region_removed,
+  alternative_routes
 }

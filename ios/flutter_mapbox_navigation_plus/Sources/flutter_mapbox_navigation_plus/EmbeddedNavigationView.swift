@@ -22,6 +22,12 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     var _mapInitialized = false
     var locationManager = CLLocationManager()
 
+    // Dart-driven map markers, keyed by the caller-provided id.
+    var circleAnnotationManager: CircleAnnotationManager?
+    var pointAnnotationManager: PointAnnotationManager?
+    var markerCircles: [String: CircleAnnotation] = [:]
+    var markerLabels: [String: PointAnnotation] = [:]
+
     init(messenger: FlutterBinaryMessenger, frame: CGRect, viewId: Int64, args: Any?)
     {
         self.frame = frame
@@ -69,6 +75,24 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             case "toggleVoiceInstructions":
                 let requested = call.arguments as? Bool
                 result(strongSelf.toggleEmbeddedVoiceInstructions(requested))
+            case "addMarkers":
+                if let markers = arguments?["markers"] as? [Any] {
+                    strongSelf.addMarkers(markers)
+                    result(true)
+                } else {
+                    result(false)
+                }
+            case "removeMarker":
+                if let id = arguments?["id"] as? String {
+                    strongSelf.removeMarker(id: id)
+                }
+                result(true)
+            case "clearMarkers":
+                strongSelf.clearMarkers()
+                result(true)
+            case "selectAlternativeRoute":
+                // Reordering the active route set is Android-only for now.
+                result(false)
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -190,6 +214,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 case .success(let navigationRoutes):
                     self._routes = navigationRoutes
                     self.sendEvent(eventType: .route_built, data: self.encodeRouteResponse(routes: navigationRoutes))
+                    self.sendAlternatives(routes: navigationRoutes)
                     // showcase draws the route lines + waypoint markers and frames them.
                     self.navigationMapView?.showcase(navigationRoutes)
                     flutterResult(true)
@@ -270,6 +295,100 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         let pinRight = NSLayoutConstraint(item: topView, attribute: .right, relatedBy: .equal,
                                           toItem: holderView, attribute: .right, multiplier: 1.0, constant: padding)
         holderView.addConstraints([pinTop, pinBottom, pinLeft, pinRight])
+    }
+}
+
+// MARK: - Dart-driven map markers
+
+extension FlutterMapboxNavigationView {
+
+    func ensureAnnotationManagers() {
+        if circleAnnotationManager == nil {
+            circleAnnotationManager = navigationMapView.mapView.annotations.makeCircleAnnotationManager()
+        }
+        if pointAnnotationManager == nil {
+            pointAnnotationManager = navigationMapView.mapView.annotations.makePointAnnotationManager()
+        }
+    }
+
+    func addMarkers(_ markers: [Any]) {
+        ensureAnnotationManagers()
+        for raw in markers {
+            guard let marker = raw as? [String: Any],
+                  let id = marker["id"] as? String,
+                  let lat = marker["latitude"] as? Double,
+                  let lng = marker["longitude"] as? Double else { continue }
+            let colorHex = marker["color"] as? String ?? "#FF3B30"
+            let radius = marker["radius"] as? Double ?? 8.0
+            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+
+            var circle = CircleAnnotation(centerCoordinate: coordinate)
+            circle.circleRadius = radius
+            circle.circleColor = StyleColor(UIColor(hexString: colorHex))
+            circle.circleStrokeColor = StyleColor(UIColor.white)
+            circle.circleStrokeWidth = 2.0
+            markerCircles[id] = circle
+
+            if let label = marker["label"] as? String, !label.isEmpty {
+                var point = PointAnnotation(coordinate: coordinate)
+                point.textField = label
+                point.textOffset = [0, -1.6]
+                point.textColor = StyleColor(UIColor.black)
+                point.textHaloColor = StyleColor(UIColor.white)
+                point.textHaloWidth = 1.0
+                markerLabels[id] = point
+            }
+        }
+        syncAnnotations()
+    }
+
+    func removeMarker(id: String) {
+        markerCircles.removeValue(forKey: id)
+        markerLabels.removeValue(forKey: id)
+        syncAnnotations()
+    }
+
+    func clearMarkers() {
+        markerCircles.removeAll()
+        markerLabels.removeAll()
+        syncAnnotations()
+    }
+
+    private func syncAnnotations() {
+        circleAnnotationManager?.annotations = Array(markerCircles.values)
+        pointAnnotationManager?.annotations = Array(markerLabels.values)
+    }
+}
+
+extension UIColor {
+    /// Build a color from a `#RRGGBB` or `#AARRGGBB` hex string. Falls back to a
+    /// red marker color when the string can't be parsed.
+    convenience init(hexString: String) {
+        var hex = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        var value: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&value)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 8:
+            a = (value >> 24) & 0xff
+            r = (value >> 16) & 0xff
+            g = (value >> 8) & 0xff
+            b = value & 0xff
+        case 6:
+            a = 0xff
+            r = (value >> 16) & 0xff
+            g = (value >> 8) & 0xff
+            b = value & 0xff
+        default:
+            a = 0xff; r = 0xff; g = 0x3b; b = 0x30
+        }
+        self.init(
+            red: CGFloat(r) / 255.0,
+            green: CGFloat(g) / 255.0,
+            blue: CGFloat(b) / 255.0,
+            alpha: CGFloat(a) / 255.0
+        )
     }
 }
 

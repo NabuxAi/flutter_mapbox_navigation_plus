@@ -148,6 +148,43 @@ class MapBoxNavigationViewController {
         .then((dynamic result) => result as bool? ?? false);
   }
 
+  /// Adds (or replaces, by id) one or more [markers] on the map. Markers are
+  /// rendered independently of the route, so you can show passengers, drivers,
+  /// or points of interest. Returns true on success.
+  Future<bool> addMarkers(List<MapMarker> markers) async {
+    final args = <String, dynamic>{
+      'markers': markers.map((m) => m.toMap()).toList(),
+    };
+    return _methodChannel
+        .invokeMethod<bool>('addMarkers', args)
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes a single previously added marker by [id].
+  Future<bool> removeMarker(String id) async {
+    return _methodChannel
+        .invokeMethod<bool>('removeMarker', <String, dynamic>{'id': id})
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes all markers added with [addMarkers].
+  Future<bool> clearMarkers() async {
+    return _methodChannel
+        .invokeMethod<bool>('clearMarkers')
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Promotes the alternative route at [index] (as delivered by the
+  /// `alternative_routes` event) to the primary route. Returns true on success.
+  Future<bool> selectAlternativeRoute(int index) async {
+    return _methodChannel
+        .invokeMethod<bool>(
+          'selectAlternativeRoute',
+          <String, dynamic>{'index': index},
+        )
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
   /// Generic Handler for Messages sent from the Platform
   Future<dynamic> _handleMethod(MethodCall call) async {
     switch (call.method) {

@@ -58,6 +58,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     var _voiceEnabled = true
     var _bannerEnabled = true
     var _padding: UIEdgeInsets = .zero
+    var _exclude: [String] = []
 
     /// The single shared provider for routing + active guidance.
     var provider: MapboxNavigationProvider {
@@ -154,6 +155,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
                     flutterResult("An error occured while calculating the route \(error.localizedDescription)")
                 case .success(let navigationRoutes):
                     self._routes = navigationRoutes
+                    self.sendAlternatives(routes: navigationRoutes)
                     if isUpdate, self._navigationViewController != nil {
                         // A trip is already on screen — update it in place instead
                         // of presenting a second NavigationViewController (which
@@ -240,7 +242,25 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         options.distanceMeasurementSystem = _voiceUnits == "imperial" ? .imperial : .metric
         options.locale = Locale(identifier: _language)
         options.includesAlternativeRoutes = _alternatives
+        options.roadClassesToAvoid = roadClassesToAvoid(from: _exclude)
         _options = options
+    }
+
+    /// Maps the Dart `exclude` strings (toll, motorway, ferry, ...) to the
+    /// MapboxDirections `RoadClasses` option set used by the routing request.
+    func roadClassesToAvoid(from exclude: [String]) -> RoadClasses {
+        var classes: RoadClasses = []
+        for value in exclude {
+            switch value.lowercased() {
+            case "toll", "cash_only_tolls": classes.insert(.toll)
+            case "motorway": classes.insert(.motorway)
+            case "ferry": classes.insert(.ferry)
+            case "tunnel": classes.insert(.tunnel)
+            case "restricted": classes.insert(.restricted)
+            default: break
+            }
+        }
+        return classes
     }
 
     func parseFlutterArguments(arguments: NSDictionary?) {
@@ -263,6 +283,9 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         _animateBuildRoute = arguments?["animateBuildRoute"] as? Bool ?? _animateBuildRoute
         _longPressDestinationEnabled = arguments?["longPressDestinationEnabled"] as? Bool ?? _longPressDestinationEnabled
         _alternatives = arguments?["alternatives"] as? Bool ?? _alternatives
+        if let exclude = arguments?["exclude"] as? [String] {
+            _exclude = exclude
+        }
 
         if let padding = arguments?["padding"] as? [Double], padding.count == 4 {
             _padding = UIEdgeInsets(top: CGFloat(padding[0]), left: CGFloat(padding[1]), bottom: CGFloat(padding[2]), right: CGFloat(padding[3]))
@@ -348,6 +371,43 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         if let sink = _eventSink {
             sink(json)
         }
+    }
+
+    /// Emit an event whose `data` is a JSON array (parity with the Android
+    /// `alternative_routes` payload).
+    func sendArrayEvent(eventType: String, data: [[String: Any]])
+    {
+        let payload: [String: Any] = ["eventType": eventType, "data": data]
+        guard JSONSerialization.isValidJSONObject(payload),
+              let jsonData = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: jsonData, encoding: .utf8) else { return }
+        if let sink = _eventSink {
+            sink(json)
+        }
+    }
+
+    /// Emit a summary (index / distance / duration) of every route returned by a
+    /// build request so a Flutter UI can present the alternatives.
+    func sendAlternatives(routes: NavigationRoutes)
+    {
+        var list: [[String: Any]] = []
+        let main = routes.mainRoute.route
+        list.append([
+            "index": 0,
+            "distance": main.distance,
+            "duration": main.expectedTravelTime,
+            "isPrimary": true,
+        ])
+        for (offset, alternative) in routes.alternativeRoutes.enumerated() {
+            let route = alternative.route
+            list.append([
+                "index": offset + 1,
+                "distance": route.distance,
+                "duration": route.expectedTravelTime,
+                "isPrimary": false,
+            ])
+        }
+        sendArrayEvent(eventType: "alternative_routes", data: list)
     }
 
     func encodeRouteResponse(routes: NavigationRoutes) -> String {

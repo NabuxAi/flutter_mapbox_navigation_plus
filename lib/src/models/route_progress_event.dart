@@ -24,6 +24,9 @@ class RouteProgressEvent {
     this.stepIndex,
     this.isProgressEvent,
     this.currentSpeed,
+    this.maneuverType,
+    this.maneuverModifier,
+    this.upcomingInstruction,
   });
 
   RouteProgressEvent.fromJson(Map<String, dynamic> json) {
@@ -65,6 +68,9 @@ class RouteProgressEvent {
     currentSpeed = isNullOrZero(json['currentSpeed'] as num?)
         ? 0.0
         : (json['currentSpeed'] as num).toDouble();
+    maneuverType = json['maneuverType'] as String?;
+    maneuverModifier = json['maneuverModifier'] as String?;
+    upcomingInstruction = json['upcomingInstruction'] as String?;
   }
 
   bool? arrived;
@@ -83,4 +89,15 @@ class RouteProgressEvent {
 
   /// Current speed of the device in meters per second along the route.
   double? currentSpeed;
+
+  /// Maneuver type of the current step, e.g. `turn`, `merge`, `roundabout`,
+  /// `arrive`. Useful for drawing a turn arrow in a custom Flutter UI.
+  String? maneuverType;
+
+  /// Maneuver modifier of the current step, e.g. `left`, `right`,
+  /// `slight left`, `straight`.
+  String? maneuverModifier;
+
+  /// Instruction text for the next (upcoming) step, when available.
+  String? upcomingInstruction;
 }
