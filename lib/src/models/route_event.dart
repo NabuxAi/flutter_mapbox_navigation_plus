@@ -41,6 +41,8 @@ class RouteEvent {
         eventType == MapBoxEvent.offline_region_error ||
         eventType == MapBoxEvent.offline_region_removed) {
       data = dataJson as Map<String, dynamic>?;
+    } else if (eventType == MapBoxEvent.alternative_routes) {
+      data = RouteAlternative.listFromJson(dataJson);
     } else {
       data = jsonEncode(dataJson);
     }

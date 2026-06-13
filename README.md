@@ -242,6 +242,66 @@ await _controller.buildRoute(wayPoints: wayPoints);
 await _controller.startNavigation();
 ```
 
+## Map Markers (Embedded View)
+
+Draw your own points on the embedded map — passenger pickups, nearby drivers,
+points of interest — independently of the route. Markers render natively as a
+colored circle with an optional label, so no image asset is required.
+
+```dart
+await _controller.addMarkers([
+  MapMarker(
+    id: 'passenger',
+    latitude: 23.5880,
+    longitude: 58.3829,
+    label: 'Pickup',
+    color: '#FF3B30',
+    radius: 9,
+  ),
+]);
+
+// Update by re-adding with the same id, remove one, or clear all:
+await _controller.removeMarker('passenger');
+await _controller.clearMarkers();
+```
+
+## Avoiding Roads (Tolls, Motorways, Ferries)
+
+Pass `exclude` in `MapBoxOptions` to keep certain road classes out of the route
+when possible. Accepted values mirror the Mapbox Directions API
+(`toll`, `motorway`, `ferry`, `tunnel`, `restricted`, ...).
+
+```dart
+final options = MapBoxOptions(exclude: ['toll', 'ferry']);
+await _controller.buildRoute(wayPoints: wayPoints, options: options);
+```
+
+## Alternative Routes
+
+When `alternatives: true`, a successful build emits an `alternative_routes`
+event carrying a list of `RouteAlternative` (index, distance, duration). Let the
+user pick one and promote it to the primary route (Android):
+
+```dart
+case MapBoxEvent.alternative_routes:
+  final routes = event.data as List<RouteAlternative>;
+  for (final r in routes) {
+    print('Route ${r.index}: ${r.distance} m, ${r.duration} s');
+  }
+  // Choose the second option:
+  await _controller.selectAlternativeRoute(1);
+  break;
+```
+
+## Building a Custom Navigation UI
+
+The embedded view streams rich, raw guidance data so you can build your own
+turn-by-turn UI with Flutter widgets on top of the native map. Each
+`progress_change` event's `RouteProgressEvent` includes `currentStepInstruction`,
+`upcomingInstruction`, `maneuverType`, `maneuverModifier`, `distance`,
+`duration` (ETA) and `currentSpeed` — everything needed to render a maneuver
+card, ETA bar, and speedometer in Dart.
+
 ## Offline Maps & Offline Navigation
 
 Both the Android and iOS v3 implementations can download a region so that **both

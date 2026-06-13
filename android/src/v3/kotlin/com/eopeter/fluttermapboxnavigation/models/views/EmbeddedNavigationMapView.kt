@@ -65,6 +65,15 @@ import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.scalebar.scalebar
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -138,6 +147,14 @@ class EmbeddedNavigationMapView(
     private var speechApi: MapboxSpeechApi? = null
     private var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
     private val replayRouteMapper = ReplayRouteMapper()
+
+    // Dart-driven map markers (drawn independently of the route). We keep the
+    // native annotation objects keyed by the caller-provided id so they can be
+    // updated/removed individually.
+    private var circleAnnotationManager: CircleAnnotationManager? = null
+    private var pointAnnotationManager: PointAnnotationManager? = null
+    private val markerCircles = mutableMapOf<String, CircleAnnotation>()
+    private val markerLabels = mutableMapOf<String, PointAnnotation>()
 
     private val voiceInstructionsPlayerCallback =
         com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer<SpeechAnnouncement> { announcement ->
@@ -219,6 +236,8 @@ class EmbeddedNavigationMapView(
                 routeLineView.renderRouteLineUpdate(style, result)
             }
         }
+        val currentStep = routeProgress.currentLegProgress?.currentStepProgress?.step
+        val upcomingStep = routeProgress.currentLegProgress?.upcomingStep
         sendEvent(
             "progress_change",
             mapOf(
@@ -233,12 +252,12 @@ class EmbeddedNavigationMapView(
                     routeProgress.currentLegProgress?.distanceRemaining ?: 0.0
                     ),
                 "currentStepInstruction" to (
-                    routeProgress.currentLegProgress
-                        ?.currentStepProgress
-                        ?.step
-                        ?.maneuver()
-                        ?.instruction()
-                        ?: ""
+                    currentStep?.maneuver()?.instruction() ?: ""
+                    ),
+                "maneuverType" to (currentStep?.maneuver()?.type() ?: ""),
+                "maneuverModifier" to (currentStep?.maneuver()?.modifier() ?: ""),
+                "upcomingInstruction" to (
+                    upcomingStep?.maneuver()?.instruction() ?: ""
                     ),
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
@@ -440,8 +459,112 @@ class EmbeddedNavigationMapView(
                 }
                 result.success(enabled)
             }
+            "addMarkers" -> {
+                val args = call.arguments as? Map<*, *>
+                val markers = args?.get("markers") as? List<*>
+                if (markers == null) {
+                    result.success(false)
+                    return
+                }
+                addMarkers(markers)
+                result.success(true)
+            }
+            "removeMarker" -> {
+                val id = (call.arguments as? Map<*, *>)?.get("id") as? String
+                if (id != null) removeMarkerById(id)
+                result.success(true)
+            }
+            "clearMarkers" -> {
+                circleAnnotationManager?.deleteAll()
+                pointAnnotationManager?.deleteAll()
+                markerCircles.clear()
+                markerLabels.clear()
+                result.success(true)
+            }
+            "selectAlternativeRoute" -> {
+                val index = (call.arguments as? Map<*, *>)?.get("index") as? Int ?: 0
+                val routes = currentRoutes
+                val navigation = MapboxNavigationApp.current()
+                if (routes != null && index in routes.indices) {
+                    val reordered = routes.toMutableList()
+                    reordered.add(0, reordered.removeAt(index))
+                    currentRoutes = reordered
+                    navigation?.setNavigationRoutes(reordered)
+                    renderRoute(reordered)
+                    focusRoute(reordered)
+                    sendAlternatives(reordered)
+                    result.success(true)
+                } else {
+                    result.success(false)
+                }
+            }
             else -> result.notImplemented()
         }
+    }
+
+    private fun ensureAnnotationManagers() {
+        if (circleAnnotationManager == null) {
+            circleAnnotationManager = mapView.annotations.createCircleAnnotationManager()
+        }
+        if (pointAnnotationManager == null) {
+            pointAnnotationManager = mapView.annotations.createPointAnnotationManager()
+        }
+    }
+
+    private fun addMarkers(markers: List<*>) {
+        ensureAnnotationManagers()
+        markers.forEach { raw ->
+            val marker = raw as? Map<*, *> ?: return@forEach
+            val id = marker["id"] as? String ?: return@forEach
+            val lat = marker["latitude"] as? Double ?: return@forEach
+            val lng = marker["longitude"] as? Double ?: return@forEach
+            val color = marker["color"] as? String ?: "#FF3B30"
+            val radius = marker["radius"] as? Double ?: 8.0
+            val label = marker["label"] as? String
+
+            // Replace any existing marker that uses the same id.
+            removeMarkerById(id)
+
+            val point = Point.fromLngLat(lng, lat)
+            circleAnnotationManager?.create(
+                CircleAnnotationOptions()
+                    .withPoint(point)
+                    .withCircleRadius(radius)
+                    .withCircleColor(color)
+                    .withCircleStrokeColor("#FFFFFF")
+                    .withCircleStrokeWidth(2.0)
+            )?.let { markerCircles[id] = it }
+
+            if (!label.isNullOrEmpty()) {
+                pointAnnotationManager?.create(
+                    PointAnnotationOptions()
+                        .withPoint(point)
+                        .withTextField(label)
+                        .withTextOffset(listOf(0.0, -1.6))
+                        .withTextColor("#000000")
+                        .withTextHaloColor("#FFFFFF")
+                        .withTextHaloWidth(1.0)
+                )?.let { markerLabels[id] = it }
+            }
+        }
+    }
+
+    private fun removeMarkerById(id: String) {
+        markerCircles.remove(id)?.let { circleAnnotationManager?.delete(it) }
+        markerLabels.remove(id)?.let { pointAnnotationManager?.delete(it) }
+    }
+
+    private fun sendAlternatives(routes: List<NavigationRoute>) {
+        if (routes.isEmpty()) return
+        val list = routes.mapIndexed { index, route ->
+            mapOf(
+                "index" to index,
+                "distance" to route.directionsRoute.distance(),
+                "duration" to route.directionsRoute.duration(),
+                "isPrimary" to (index == 0)
+            )
+        }
+        sendEvent("alternative_routes", list)
     }
 
     private fun buildRoute(call: MethodCall, result: MethodChannel.Result) {
@@ -468,6 +591,12 @@ class EmbeddedNavigationMapView(
         // falling back to the device locale for routing instructions.
         val routeLanguage = this.options["language"] as? String
         val routeUnits = this.options["units"] as? String
+        // Road classes to avoid (toll, motorway, ferry, ...). Accept the value
+        // either on the per-call arguments or the view-level options.
+        val excludeList = (arguments["exclude"] as? List<*>
+            ?: this.options["exclude"] as? List<*>)
+            ?.mapNotNull { it as? String }
+            ?.filter { it.isNotBlank() }
 
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions(navigationProfile(arguments))
@@ -475,6 +604,7 @@ class EmbeddedNavigationMapView(
             .apply {
                 if (!routeLanguage.isNullOrBlank()) language(routeLanguage)
                 if (!routeUnits.isNullOrBlank()) voiceUnits(routeUnits)
+                if (!excludeList.isNullOrEmpty()) excludeList(excludeList)
             }
             .coordinatesList(waypoints)
             .alternatives(arguments["alternatives"] as? Boolean ?: false)
@@ -507,6 +637,7 @@ class EmbeddedNavigationMapView(
                     renderRoute(routes)
                     focusRoute(routes)
                     sendEvent("route_built")
+                    sendAlternatives(routes)
                     result.success(true)
                 }
             }

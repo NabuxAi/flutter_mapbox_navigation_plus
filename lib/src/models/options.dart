@@ -39,6 +39,7 @@ class MapBoxOptions {
     this.standardLightPreset = 'dusk',
     this.standardTheme = 'faded',
     this.hidePoiOnTap = false,
+    this.exclude,
     this.accessToken,
   });
 
@@ -71,6 +72,7 @@ class MapBoxOptions {
     standardLightPreset = option.standardLightPreset;
     standardTheme = option.standardTheme;
     hidePoiOnTap = option.hidePoiOnTap;
+    exclude = option.exclude;
     accessToken = option.accessToken;
   }
 
@@ -195,6 +197,11 @@ class MapBoxOptions {
   /// Hides the tapped POI when supported by the native Standard style runtime.
   bool? hidePoiOnTap;
 
+  /// Road classes the route should avoid when possible. Accepted values mirror
+  /// the Mapbox Directions API, e.g. `toll`, `motorway`, `ferry`, `tunnel`,
+  /// `restricted`, `cash_only_tolls`. Unsupported values are ignored natively.
+  List<String>? exclude;
+
   /// Mapbox Access Token
   String? accessToken;
 
@@ -260,6 +267,9 @@ class MapBoxOptions {
     addIfNonNull('standardLightPreset', standardLightPreset);
     addIfNonNull('standardTheme', standardTheme);
     addIfNonNull('hidePoiOnTap', hidePoiOnTap);
+    if (exclude != null && exclude!.isNotEmpty) {
+      optionsMap['exclude'] = exclude;
+    }
     addIfNonNull('accessToken', accessToken);
 
     return optionsMap;

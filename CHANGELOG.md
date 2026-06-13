@@ -1,3 +1,9 @@
+## 1.3.0
+* Embedded view: **map markers from Dart** — `addMarkers`, `removeMarker`, `clearMarkers` draw colored circles (with an optional text label) on the map independently of the route, on both Android and iOS. Useful for passenger/driver/POI pins.
+* **Route avoidance** — `MapBoxOptions.exclude` (e.g. `['toll', 'motorway', 'ferry']`) is now honoured when building routes (Android embedded + iOS).
+* **Alternative routes** — after a successful build, an `alternative_routes` event delivers a list of `RouteAlternative` (index / distance / duration). `selectAlternativeRoute(index)` promotes one to primary (Android).
+* **Richer progress data for custom UIs** — `RouteProgressEvent` now exposes `maneuverType`, `maneuverModifier`, and `upcomingInstruction` so a fully custom Flutter navigation UI can be built on top of the native map.
+
 ## 1.2.2
 * iOS: full-screen free drive now has a close button to end the session and dismiss the screen.
 * iOS: `addWayPoints` during an active full-screen trip updates the running trip in place (`startActiveGuidance`) instead of presenting a second navigation controller (which could fail with "already presenting").

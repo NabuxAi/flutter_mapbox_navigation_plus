@@ -17,6 +17,9 @@ public class MapBoxRouteProgressEvent : Codable
     var priorLeg: MapBoxRouteLeg? = nil
     var remainingLegs: [MapBoxRouteLeg] = []
     let currentSpeed: Double
+    let maneuverType: String
+    let maneuverModifier: String
+    let upcomingInstruction: String
 
     init(progress: RouteProgress, currentSpeed: Double = 0.0) {
 
@@ -44,5 +47,8 @@ public class MapBoxRouteProgressEvent : Codable
         currentLegDistanceTraveled = progress.currentLegProgress.distanceTraveled
         currentLegDistanceRemaining = progress.currentLegProgress.distanceRemaining
         currentStepInstruction = progress.currentLegProgress.currentStep.description
+        maneuverType = progress.currentLegProgress.currentStep.maneuverType?.rawValue ?? ""
+        maneuverModifier = progress.currentLegProgress.currentStep.maneuverDirection?.rawValue ?? ""
+        upcomingInstruction = progress.currentLegProgress.upcomingStep?.instructions ?? ""
     }
 }
