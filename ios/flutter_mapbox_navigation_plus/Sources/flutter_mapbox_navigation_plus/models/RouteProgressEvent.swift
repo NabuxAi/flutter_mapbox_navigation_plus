@@ -47,7 +47,7 @@ public class MapBoxRouteProgressEvent : Codable
         currentLegDistanceTraveled = progress.currentLegProgress.distanceTraveled
         currentLegDistanceRemaining = progress.currentLegProgress.distanceRemaining
         currentStepInstruction = progress.currentLegProgress.currentStep.description
-        maneuverType = progress.currentLegProgress.currentStep.maneuverType?.rawValue ?? ""
+        maneuverType = progress.currentLegProgress.currentStep.maneuverType.rawValue
         maneuverModifier = progress.currentLegProgress.currentStep.maneuverDirection?.rawValue ?? ""
         upcomingInstruction = progress.currentLegProgress.upcomingStep?.instructions ?? ""
     }
