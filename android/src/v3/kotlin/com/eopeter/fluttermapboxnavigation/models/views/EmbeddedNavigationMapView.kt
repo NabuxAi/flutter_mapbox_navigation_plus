@@ -481,6 +481,9 @@ class EmbeddedNavigationMapView(
                 markerLabels.clear()
                 result.success(true)
             }
+            "addWayPoints" -> {
+                addWayPoints(call, result)
+            }
             "selectAlternativeRoute" -> {
                 val index = (call.arguments as? Map<*, *>)?.get("index") as? Int ?: 0
                 val routes = currentRoutes
@@ -552,6 +555,59 @@ class EmbeddedNavigationMapView(
     private fun removeMarkerById(id: String) {
         markerCircles.remove(id)?.let { circleAnnotationManager?.delete(it) }
         markerLabels.remove(id)?.let { pointAnnotationManager?.delete(it) }
+    }
+
+    /**
+     * Appends one or more intermediate stops to the route currently shown or
+     * navigated and recomputes it. The original origin is kept, mirroring the
+     * full-screen behaviour. Best effort: needs an existing route to extend.
+     */
+    private fun addWayPoints(call: MethodCall, result: MethodChannel.Result) {
+        val arguments = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+        val waypointsMap = arguments["wayPoints"] as? Map<*, *>
+        val navigation = MapboxNavigationApp.current()
+        val current = navigation?.getNavigationRoutes()?.firstOrNull()
+            ?: currentRoutes?.firstOrNull()
+        val routeOptions = current?.directionsRoute?.routeOptions()
+        if (navigation == null || routeOptions == null) {
+            result.success(false)
+            return
+        }
+
+        val coordinates = routeOptions.coordinatesList().toMutableList()
+        waypointsMap?.values?.forEach {
+            val wp = it as? Map<*, *>
+            val lat = wp?.get("Latitude") as? Double
+            val lng = wp?.get("Longitude") as? Double
+            if (lat != null && lng != null) {
+                coordinates.add(Point.fromLngLat(lng, lat))
+            }
+        }
+
+        val newOptions = routeOptions.toBuilder().coordinatesList(coordinates).build()
+        navigation.requestRoutes(
+            newOptions,
+            object : NavigationRouterCallback {
+                override fun onCanceled(routeOptions: RouteOptions, routerOrigin: String) {
+                    result.success(false)
+                }
+
+                override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
+                    sendEvent("route_build_failed")
+                    result.success(false)
+                }
+
+                override fun onRoutesReady(routes: List<NavigationRoute>, routerOrigin: String) {
+                    currentRoutes = routes
+                    navigation.setNavigationRoutes(routes)
+                    renderRoute(routes)
+                    focusRoute(routes)
+                    sendEvent("route_built")
+                    sendAlternatives(routes)
+                    result.success(true)
+                }
+            }
+        )
     }
 
     private fun sendAlternatives(routes: List<NavigationRoute>) {

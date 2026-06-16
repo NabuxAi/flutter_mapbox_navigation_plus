@@ -106,6 +106,35 @@ class MapBoxNavigationViewController {
     _ensureRouteEventSubscription();
   }
 
+  /// Adds one or more intermediate stops to the route that is currently shown
+  /// or being navigated (Uber-style "add a stop"). The new [wayPoints] are
+  /// appended and the route is recomputed; if a trip is active it continues
+  /// along the updated route. Returns true on success.
+  Future<bool> addWayPoints({required List<WayPoint> wayPoints}) async {
+    assert(wayPoints.isNotEmpty, 'Error: WayPoints must not be empty');
+    final pointList = <Map<String, Object?>>[];
+    for (var i = 0; i < wayPoints.length; i++) {
+      final wayPoint = wayPoints[i];
+      assert(wayPoint.name != null, 'Error: waypoints need name');
+      assert(wayPoint.latitude != null, 'Error: waypoints need latitude');
+      assert(wayPoint.longitude != null, 'Error: waypoints need longitude');
+      pointList.add(<String, dynamic>{
+        'Order': i,
+        'Name': wayPoint.name,
+        'Latitude': wayPoint.latitude,
+        'Longitude': wayPoint.longitude,
+        'IsSilent': wayPoint.isSilent,
+      });
+    }
+    var i = 0;
+    final wayPointMap = {for (final e in pointList) i++: e};
+    return _methodChannel
+        .invokeMethod<bool>('addWayPoints', <String, dynamic>{
+          'wayPoints': wayPointMap,
+        })
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
   /// Clear the built route and resets the map
   Future<bool?> clearRoute() async {
     return _methodChannel.invokeMethod('clearRoute');
