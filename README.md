@@ -280,7 +280,7 @@ await _controller.buildRoute(wayPoints: wayPoints, options: options);
 
 When `alternatives: true`, a successful build emits an `alternative_routes`
 event carrying a list of `RouteAlternative` (index, distance, duration). Let the
-user pick one and promote it to the primary route (Android):
+user pick one and promote it to the primary route (Android **and** iOS):
 
 ```dart
 case MapBoxEvent.alternative_routes:
@@ -291,6 +291,18 @@ case MapBoxEvent.alternative_routes:
   // Choose the second option:
   await _controller.selectAlternativeRoute(1);
   break;
+```
+
+## Mid-Trip Stops ("Add a Stop")
+
+Append intermediate stops to the route that is currently shown or being
+navigated, Uber-style. The route is recomputed and, if a trip is active,
+guidance continues along the updated route.
+
+```dart
+await _controller.addWayPoints(wayPoints: [
+  WayPoint(name: 'Coffee', latitude: 23.601, longitude: 58.401),
+]);
 ```
 
 ## Building a Custom Navigation UI

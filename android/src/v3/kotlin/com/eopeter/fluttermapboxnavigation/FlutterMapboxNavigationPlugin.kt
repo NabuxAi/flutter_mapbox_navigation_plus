@@ -163,6 +163,11 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
         (args["zoom"] as? Double)?.let { intent.putExtra("zoom", it) }
         (args["initialLatitude"] as? Double)?.let { intent.putExtra("initialLatitude", it) }
         (args["initialLongitude"] as? Double)?.let { intent.putExtra("initialLongitude", it) }
+        (args["exclude"] as? List<*>)
+            ?.mapNotNull { it as? String }
+            ?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { intent.putExtra("exclude", it.toTypedArray()) }
     }
 
     override fun onListen(args: Any?, sink: EventChannel.EventSink?) {

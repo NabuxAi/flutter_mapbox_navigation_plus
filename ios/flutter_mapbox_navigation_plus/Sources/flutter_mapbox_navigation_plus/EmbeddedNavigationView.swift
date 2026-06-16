@@ -90,9 +90,11 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             case "clearMarkers":
                 strongSelf.clearMarkers()
                 result(true)
+            case "addWayPoints":
+                strongSelf.addEmbeddedWayPoints(arguments: arguments, result: result)
             case "selectAlternativeRoute":
-                // Reordering the active route set is Android-only for now.
-                result(false)
+                let index = (arguments?["index"] as? Int) ?? 0
+                strongSelf.selectAlternativeRoute(index: index, result: result)
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -269,6 +271,98 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationViewController.didMove(toParent: hostViewController)
         _navigationRunningNotified = false
         result(true)
+    }
+
+    /// Append one or more intermediate stops to the route currently shown or
+    /// navigated and recompute it. If a trip is active, guidance continues along
+    /// the updated route.
+    func addEmbeddedWayPoints(arguments: NSDictionary?, result: @escaping FlutterResult) {
+        guard let locations = getLocationsFromFlutterArgument(arguments: arguments) else {
+            result(false)
+            return
+        }
+        for loc in locations {
+            var waypoint = Waypoint(
+                coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
+                name: loc.name
+            )
+            waypoint.separatesLegs = !loc.isSilent
+            _wayPoints.append(waypoint)
+        }
+
+        setNavigationOptions(wayPoints: _wayPoints)
+        guard let options = _options else {
+            result(false)
+            return
+        }
+
+        let request = mapboxNavigation.routingProvider().calculateRoutes(options: options)
+        Task { [weak self] in
+            guard let self = self else { return }
+            let routeResult = await request.result
+            await MainActor.run {
+                switch routeResult {
+                case .failure:
+                    self.sendEvent(eventType: .route_build_failed)
+                    result(false)
+                case .success(let navigationRoutes):
+                    self._routes = navigationRoutes
+                    self.sendEvent(eventType: .route_built, data: self.encodeRouteResponse(routes: navigationRoutes))
+                    self.sendAlternatives(routes: navigationRoutes)
+                    self.navigationMapView?.showcase(navigationRoutes)
+                    // Keep an active trip going along the new route.
+                    if self._navigationViewController != nil {
+                        self.mapboxNavigation.tripSession().startActiveGuidance(
+                            with: navigationRoutes,
+                            startLegIndex: 0
+                        )
+                    }
+                    result(true)
+                }
+            }
+        }
+    }
+
+    /// Promote the alternative route at `index` (0 = current main route) to the
+    /// primary route, using the v3 `NavigationRoutes.selecting(alternativeRoute:)`
+    /// API. Re-showcases and, if navigating, restarts guidance on the new route.
+    func selectAlternativeRoute(index: Int, result: @escaping FlutterResult) {
+        guard let routes = _routes else {
+            result(false)
+            return
+        }
+        if index <= 0 {
+            // The main route is already primary; just re-frame it.
+            navigationMapView?.showcase(routes)
+            result(true)
+            return
+        }
+        let alternativeIndex = index - 1
+        guard alternativeIndex < routes.alternativeRoutes.count else {
+            result(false)
+            return
+        }
+        let alternative = routes.alternativeRoutes[alternativeIndex]
+        Task { [weak self] in
+            guard let self = self else { return }
+            let selected = await routes.selecting(alternativeRoute: alternative)
+            await MainActor.run {
+                guard let selected = selected else {
+                    result(false)
+                    return
+                }
+                self._routes = selected
+                self.navigationMapView?.showcase(selected)
+                self.sendAlternatives(routes: selected)
+                if self._navigationViewController != nil {
+                    self.mapboxNavigation.tripSession().startActiveGuidance(
+                        with: selected,
+                        startLegIndex: 0
+                    )
+                }
+                result(true)
+            }
+        }
     }
 
     func recenterEmbeddedCamera() {

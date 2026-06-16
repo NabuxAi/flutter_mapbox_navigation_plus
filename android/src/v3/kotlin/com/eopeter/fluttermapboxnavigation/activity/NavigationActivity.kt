@@ -429,12 +429,14 @@ class NavigationActivity : AppCompatActivity() {
 
         val language = intent.getStringExtra("language")
         val units = intent.getStringExtra("units")
+        val excludeList = intent.getStringArrayExtra("exclude")?.toList()
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions(navigationProfile())
             .applyLanguageAndVoiceUnitOptions(this)
             .apply {
                 if (!language.isNullOrBlank()) language(language)
                 if (!units.isNullOrBlank()) voiceUnits(units)
+                if (!excludeList.isNullOrEmpty()) excludeList(excludeList)
             }
             .coordinatesList(waypoints)
             .alternatives(intent.getBooleanExtra("alternatives", false))
@@ -457,6 +459,7 @@ class NavigationActivity : AppCompatActivity() {
                     navigation.setNavigationRoutes(routes)
                     renderRoute(routes)
                     FlutterMapboxNavigationPlugin.sendEvent("route_built")
+                    sendAlternatives(routes)
                     startTripSession(simulate)
                     if (simulate) startSimulation(navigation, routes.first())
                     navigationCamera.requestNavigationCameraToFollowing()
@@ -492,6 +495,20 @@ class NavigationActivity : AppCompatActivity() {
         }
         viewportDataSource.onRouteChanged(routes.first())
         viewportDataSource.evaluate()
+    }
+
+    /** Emit a summary (index / distance / duration) of every returned route. */
+    private fun sendAlternatives(routes: List<NavigationRoute>) {
+        if (routes.isEmpty()) return
+        val list = routes.mapIndexed { index, route ->
+            mapOf(
+                "index" to index,
+                "distance" to route.directionsRoute.distance(),
+                "duration" to route.directionsRoute.duration(),
+                "isPrimary" to (index == 0)
+            )
+        }
+        FlutterMapboxNavigationPlugin.sendEvent("alternative_routes", list)
     }
 
     /** Insert additional waypoints into the ongoing route (best effort). */

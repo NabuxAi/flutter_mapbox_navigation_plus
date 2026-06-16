@@ -1,3 +1,10 @@
+## 1.4.0
+* **Alternative-route selection on iOS** — `selectAlternativeRoute(index)` now promotes the chosen route to primary on iOS too (via the v3 `NavigationRoutes.selecting(alternativeRoute:)` API), at parity with Android. Re-showcases and, if a trip is active, continues guidance along the new route.
+* **Mid-trip stops on the embedded view** — `MapBoxNavigationViewController.addWayPoints(...)` appends intermediate stops to the route currently shown/navigated and recomputes it (Uber-style "add a stop"), on Android and iOS. Previously `addWayPoints` only worked for full-screen navigation.
+* **Road avoidance on full-screen Android** — `MapBoxOptions.exclude` (toll/motorway/ferry/...) is now also honoured by the full-screen `startNavigation` path (it already worked on the embedded view and on iOS).
+* Full-screen Android now also emits the `alternative_routes` event for parity with the embedded view.
+* Offline maps & offline routing (`downloadOfflineRegion` / `removeOfflineRegion` / `getOfflineRegions`) continue to be supported on both platforms.
+
 ## 1.3.0
 * Embedded view: **map markers from Dart** — `addMarkers`, `removeMarker`, `clearMarkers` draw colored circles (with an optional text label) on the map independently of the route, on both Android and iOS. Useful for passenger/driver/POI pins.
 * **Route avoidance** — `MapBoxOptions.exclude` (e.g. `['toll', 'motorway', 'ferry']`) is now honoured when building routes (Android embedded + iOS).
