@@ -314,6 +314,18 @@ turn-by-turn UI with Flutter widgets on top of the native map. Each
 `duration` (ETA) and `currentSpeed` — everything needed to render a maneuver
 card, ETA bar, and speedometer in Dart.
 
+## CarPlay & Android Auto
+
+The plugin shares its single Mapbox navigation session so you can project
+turn-by-turn guidance onto a car head unit with **Apple CarPlay** and
+**Android Auto** — the active route, voice guidance and downloaded offline tiles
+stay in sync between phone and car.
+
+CarPlay (entitlement + scene delegate) and Android Auto (a `CarAppService`) are
+declared in the **host app**, so setup is a few copy-paste steps. See the full
+guide and ready-to-use templates in
+[`docs/CARPLAY_ANDROID_AUTO.md`](docs/CARPLAY_ANDROID_AUTO.md).
+
 ## Offline Maps & Offline Navigation
 
 Both the Android and iOS v3 implementations can download a region so that **both
