@@ -1,3 +1,6 @@
+## 1.5.0
+* **CarPlay & Android Auto support.** The iOS `NavigationProviderHolder` is now public so a host app's CarPlay scene delegate can build its `CarPlayManager` against the *same* navigation provider the plugin uses — phone and car share one route, guidance and offline tile store. Added a full integration guide (`docs/CARPLAY_ANDROID_AUTO.md`) with ready-to-copy templates for the iOS CarPlay scene delegate and the Android Auto `CarAppService`/`Session`. (CarPlay entitlement and the Android Auto `CarAppService` are declared in the host app, as required by both platforms.)
+
 ## 1.4.0
 * **Alternative-route selection on iOS** — `selectAlternativeRoute(index)` now promotes the chosen route to primary on iOS too (via the v3 `NavigationRoutes.selecting(alternativeRoute:)` API), at parity with Android. Re-showcases and, if a trip is active, continues guidance along the new route.
 * **Mid-trip stops on the embedded view** — `MapBoxNavigationViewController.addWayPoints(...)` appends intermediate stops to the route currently shown/navigated and recomputes it (Uber-style "add a stop"), on Android and iOS. Previously `addWayPoints` only worked for full-screen navigation.

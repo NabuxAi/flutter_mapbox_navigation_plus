@@ -12,14 +12,19 @@ import MapboxNavigationCore
 /// rebuilt when the caller toggles route simulation. The on-disk tile store is
 /// keyed by location and therefore survives a provider rebuild, so downloaded
 /// offline regions are not lost.
-final class NavigationProviderHolder {
+public final class NavigationProviderHolder {
 
-    static let shared = NavigationProviderHolder()
+    public static let shared = NavigationProviderHolder()
 
     /// The currently active provider. Read this when you must not change the
     /// simulation mode (e.g. the offline manager), so an in-flight navigation
     /// session is never torn down.
-    private(set) var current: MapboxNavigationProvider
+    ///
+    /// Exposed publicly so a host app's CarPlay scene delegate can build its
+    /// `CarPlayManager` against the *same* provider the Flutter plugin uses,
+    /// keeping routing, active guidance and offline data consistent across the
+    /// phone and the car screen.
+    public private(set) var current: MapboxNavigationProvider
     private var simulating = false
 
     private init() {
@@ -29,7 +34,7 @@ final class NavigationProviderHolder {
     /// Returns the shared provider, rebuilding it only if the simulation mode
     /// changed since the last call.
     @discardableResult
-    func provider(simulating: Bool) -> MapboxNavigationProvider {
+    public func provider(simulating: Bool) -> MapboxNavigationProvider {
         if simulating != self.simulating {
             self.simulating = simulating
             current = MapboxNavigationProvider(
@@ -42,5 +47,5 @@ final class NavigationProviderHolder {
     }
 
     @MainActor
-    var mapboxNavigation: MapboxNavigation { current.mapboxNavigation }
+    public var mapboxNavigation: MapboxNavigation { current.mapboxNavigation }
 }
