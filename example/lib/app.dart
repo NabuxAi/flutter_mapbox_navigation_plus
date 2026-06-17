@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mapbox_navigation_plus/flutter_mapbox_navigation_plus.dart';
 
-class SampleNavigationApp extends StatefulWidget {
-  const SampleNavigationApp({super.key});
+class PlaygroundPage extends StatefulWidget {
+  const PlaygroundPage({super.key});
 
   @override
-  State<SampleNavigationApp> createState() => _SampleNavigationAppState();
+  State<PlaygroundPage> createState() => _PlaygroundPageState();
 }
 
-class _SampleNavigationAppState extends State<SampleNavigationApp> {
+class _PlaygroundPageState extends State<PlaygroundPage> {
   String? _platformVersion;
   String? _instruction;
   final _origin = WayPoint(
@@ -122,12 +122,11 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
-        body: Center(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Feature Playground'),
+      ),
+      body: Center(
           child: Column(children: <Widget>[
             Expanded(
               child: SingleChildScrollView(
@@ -463,8 +462,7 @@ class _SampleNavigationAppState extends State<SampleNavigationApp> {
             )
           ]),
         ),
-      ),
-    );
+      );
   }
 
   Future<void> _onEmbeddedRouteEvent(e) async {

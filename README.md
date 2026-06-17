@@ -19,6 +19,8 @@ Add turn-by-turn navigation to your Flutter application using Mapbox. Never make
 * [Support for over two dozen languages](https://docs.mapbox.com/ios/navigation/overview/localization-and-internationalization/).
 * Real-time progress events including current speed (m/s), distance remaining, duration remaining (ETA), and an `arrived` flag — with parity across Android and iOS.
 * Embeddable navigation view for both Android and iOS.
+* **Map markers** drawn from Dart, **road avoidance** (`exclude`), **alternative routes** with selection, **mid-trip stops** ("add a stop"), **offline maps & routing**, and **CarPlay / Android Auto**.
+* **Build your own UI** — rich raw guidance data (maneuver type/modifier, upcoming step, ETA, speed) lets you render a fully custom Flutter navigation UI. See the [`Custom Navigation UI`](example/lib/custom_nav_ui.dart) screen in the example app.
 
 ## What's New in This Fork
 
