@@ -1,3 +1,7 @@
+## 1.5.1
+* Example app overhaul: a home menu plus a new **Custom Navigation UI** screen that builds a complete Flutter turn-by-turn UI on the embedded map (maneuver card with turn icons, ETA/distance/speed panel, alternative-route chips with selection, "add a stop", recenter and mute) — a reference for building your own branded UI from the route events.
+* Docs: README highlights the new markers / route-avoidance / alternatives / mid-trip-stops / CarPlay & Android Auto features and links to the custom-UI example.
+
 ## 1.5.0
 * **CarPlay & Android Auto support.** The iOS `NavigationProviderHolder` is now public so a host app's CarPlay scene delegate can build its `CarPlayManager` against the *same* navigation provider the plugin uses — phone and car share one route, guidance and offline tile store. Added a full integration guide (`docs/CARPLAY_ANDROID_AUTO.md`) with ready-to-copy templates for the iOS CarPlay scene delegate and the Android Auto `CarAppService`/`Session`. (CarPlay entitlement and the Android Auto `CarAppService` are declared in the host app, as required by both platforms.)
 
