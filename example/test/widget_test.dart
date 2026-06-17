@@ -14,8 +14,8 @@ import '../lib/app.dart';
 
 void main() {
   testWidgets('Verify Platform version', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const SampleNavigationApp());
+    // PlaygroundPage is a Scaffold, so it needs a MaterialApp ancestor.
+    await tester.pumpWidget(const MaterialApp(home: PlaygroundPage()));
 
     // Verify that platform version is retrieved.
     expect(
