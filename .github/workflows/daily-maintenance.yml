@@ -1,0 +1,119 @@
+name: Daily Maintenance Bot
+
+# Once a day, Claude picks the top open item from ROADMAP.md, opens a tracking
+# issue, implements a small focused fix on a branch, opens a PR that closes the
+# issue, and enables auto-merge so the PR lands ONLY after CI is green.
+#
+# Required repository configuration (one-time):
+#   Secrets  -> ANTHROPIC_API_KEY : Anthropic API key for Claude.
+#               AUTOMATION_TOKEN  : a (fine-grained) PAT or GitHub App token with
+#                                   contents:write, issues:write, pull_requests:write.
+#                                   REQUIRED for auto-merge to work — pushes/PRs made
+#                                   with the default GITHUB_TOKEN do NOT trigger the CI
+#                                   workflow, so CI would never run and auto-merge would
+#                                   wait forever. The PAT makes CI fire on the bot's PR.
+#   Settings -> General -> "Allow auto-merge" must be enabled.
+#   Settings -> Branches -> protect `main` and mark the CI "Dart analyze & test"
+#               check as required, so a red build blocks the auto-merge.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      task_hint:
+        description: "Optional: a specific ROADMAP item or instruction to work on"
+        required: false
+        type: string
+
+concurrency:
+  group: daily-maintenance
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  maintain:
+    name: Pick a ROADMAP item, fix it, open an auto-merge PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure git identity
+        run: |
+          git config user.name "nabux-daily-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Run the daily maintenance agent
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          claude_args: >-
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep"
+            --max-turns 40
+          prompt: |
+            You are the daily maintenance bot for the `flutter_mapbox_navigation_plus`
+            Flutter plugin. Complete EXACTLY ONE small, well-scoped improvement end to
+            end and open a pull request that auto-merges once CI is green.
+
+            Repository facts:
+            - Flutter plugin (Dart) with native Android (Kotlin under android/src/v3)
+              and iOS (Swift under ios/) code. Default branch: `main`.
+            - Conventions and how to validate are documented in CLAUDE.md.
+            - The curated backlog is ROADMAP.md, written as markdown checkboxes.
+            - CI (.github/workflows/ci.yml) runs `flutter analyze --no-fatal-infos`
+              and `flutter test`, plus native Android & iOS builds.
+
+            Do these steps IN ORDER:
+            1. Read CLAUDE.md and ROADMAP.md.
+            2. Choose the task. If a hint was provided, use it:
+               "${{ github.event.inputs.task_hint }}".
+               Otherwise pick the FIRST unchecked `- [ ]` item from the highest-priority
+               (topmost) section of ROADMAP.md. If every box is already checked, analyze
+               the repository, append 3 new concrete and well-scoped items to ROADMAP.md,
+               then pick the first of them.
+            3. Ensure a label exists:
+               `gh label create daily-bot --color 5319e7 --description "Automated daily maintenance" || true`
+            4. Open a tracking issue and capture its number:
+               `gh issue create --title "<task title>" --body "<what & acceptance criteria>" --label daily-bot`
+            5. Create a branch off the latest `main`:
+               `git switch -c bot/$(date +%Y-%m-%d)-<short-kebab-slug>`
+            6. Implement the change. Keep the diff MINIMAL and focused on this one task.
+               Add/adjust Dart tests when you change behavior; update docs/CHANGELOG.md
+               when it is user-facing. Tick the ROADMAP checkbox (`- [x]`) for this item.
+            7. Validate locally and DO NOT continue if anything fails:
+               `flutter pub get && dart format . && flutter analyze --no-fatal-infos && flutter test`
+            8. Commit (Conventional Commits style) and push the branch.
+            9. Open the PR against `main`; its body MUST contain `Closes #<issue-number>`
+               and a short summary. Add the `daily-bot` label.
+            10. Enable auto-merge so it merges only after CI passes:
+                `gh pr merge --squash --auto`
+
+            Hard rules:
+            - EXACTLY ONE task per run. Small diffs only.
+            - NEVER touch secrets, tokens, CI credentials, the pinned Mapbox SDK
+              versions, or .github/workflows/release.yml unless the task explicitly says so.
+            - NEVER force-push to `main` or merge directly into it — rely on the
+              CI-gated auto-merge.
+            - If validation fails and you cannot fix it within this task's scope:
+              comment the failure on the issue, leave the PR as a draft (do NOT enable
+              auto-merge), and stop.
