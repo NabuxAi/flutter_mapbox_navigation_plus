@@ -10,6 +10,7 @@ export 'options.dart';
 export 'route_alternative.dart';
 export 'route_event.dart';
 export 'route_leg.dart';
+export 'user_location.dart';
 export 'route_progress_event.dart';
 export 'route_step.dart';
 export 'voice_units.dart';

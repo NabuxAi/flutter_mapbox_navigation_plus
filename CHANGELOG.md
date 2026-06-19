@@ -1,3 +1,8 @@
+## 1.9.0
+* **Current location & location stream** — `getCurrentLocation()` returns the device's position (`UserLocation`: lat/lng/bearing/speed), and a `location_change` event streams updates (Android: always; iOS: during active navigation).
+* **Route Refresh** — `MapBoxOptions.enableRefresh` is now wired on Android (embedded & full-screen) so live traffic/incident data refreshes the active route.
+* Deferred (need separate Mapbox APIs): waypoint optimization (Optimization API), passing a precomputed route, and reroute-control — tracked for a future release.
+
 ## 1.8.0
 * **Richer navigation events & data** (Android & iOS, embedded and full-screen):
   * New `waypoint_arrival` event when an intermediate stop is reached (with its index/name). `on_arrival` now fires only at the final destination on iOS, matching Android.

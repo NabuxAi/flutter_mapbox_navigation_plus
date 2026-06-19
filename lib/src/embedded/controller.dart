@@ -294,6 +294,14 @@ class MapBoxNavigationViewController {
         .then((dynamic result) => result as bool? ?? false);
   }
 
+  /// Returns the device's current location, or null if not yet available.
+  Future<UserLocation?> getCurrentLocation() async {
+    final map = await _methodChannel
+        .invokeMethod<Map<dynamic, dynamic>>('getCurrentLocation');
+    if (map == null) return null;
+    return UserLocation.fromMap(map);
+  }
+
   /// Returns the current camera position, or null if unavailable.
   Future<CameraPosition?> getCameraPosition() async {
     final map = await _methodChannel
