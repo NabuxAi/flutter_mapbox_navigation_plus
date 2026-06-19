@@ -4,8 +4,9 @@
 /// Dart, independent of the route. Use it to show the passenger pickup point,
 /// nearby drivers, points of interest, etc.
 ///
-/// Markers are rendered natively as a colored circle with an optional text
-/// label, so no image asset is required on either platform.
+/// By default a marker is rendered natively as a colored circle with an
+/// optional text label, so no image asset is required. Provide [imageBase64]
+/// (the base64 of a PNG) to draw a custom image icon instead of the circle.
 class MapMarker {
   MapMarker({
     required this.id,
@@ -14,7 +15,20 @@ class MapMarker {
     this.label,
     this.color = '#FF3B30',
     this.radius = 8,
+    this.imageBase64,
+    this.imageWidth,
+    this.imageHeight,
   });
+
+  /// Base64-encoded PNG to use as the marker icon. When set, the icon image is
+  /// drawn instead of the default circle (the [label], if any, still shows).
+  final String? imageBase64;
+
+  /// Optional rendered width of the icon image in logical pixels.
+  final double? imageWidth;
+
+  /// Optional rendered height of the icon image in logical pixels.
+  final double? imageHeight;
 
   /// Stable identifier used to update or remove the marker later. Adding a
   /// marker with an existing [id] replaces the previous one.
@@ -42,5 +56,8 @@ class MapMarker {
         'label': label,
         'color': color,
         'radius': radius,
+        'imageBase64': imageBase64,
+        'imageWidth': imageWidth,
+        'imageHeight': imageHeight,
       };
 }

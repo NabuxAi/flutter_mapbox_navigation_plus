@@ -76,6 +76,14 @@ import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotation
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolygonAnnotation
+import com.mapbox.maps.plugin.annotation.generated.PolygonAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolygonAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPolygonAnnotationManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -155,8 +163,13 @@ class EmbeddedNavigationMapView(
     // updated/removed individually.
     private var circleAnnotationManager: CircleAnnotationManager? = null
     private var pointAnnotationManager: PointAnnotationManager? = null
+    private var polylineAnnotationManager: PolylineAnnotationManager? = null
+    private var polygonAnnotationManager: PolygonAnnotationManager? = null
     private val markerCircles = mutableMapOf<String, CircleAnnotation>()
     private val markerLabels = mutableMapOf<String, PointAnnotation>()
+    private val userPolylines = mutableMapOf<String, PolylineAnnotation>()
+    private val circlePolygons = mutableMapOf<String, PolygonAnnotation>()
+    private val circleStrokes = mutableMapOf<String, PolylineAnnotation>()
 
     private val voiceInstructionsPlayerCallback =
         com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer<SpeechAnnouncement> { announcement ->
@@ -506,6 +519,48 @@ class EmbeddedNavigationMapView(
                 markerLabels.clear()
                 result.success(true)
             }
+            "addPolylines" -> {
+                val list = (call.arguments as? Map<*, *>)?.get("polylines") as? List<*>
+                if (list == null) {
+                    result.success(false)
+                    return
+                }
+                addPolylines(list)
+                result.success(true)
+            }
+            "removePolyline" -> {
+                val id = (call.arguments as? Map<*, *>)?.get("id") as? String
+                if (id != null) {
+                    userPolylines.remove(id)?.let { polylineAnnotationManager?.delete(it) }
+                }
+                result.success(true)
+            }
+            "clearPolylines" -> {
+                userPolylines.values.forEach { polylineAnnotationManager?.delete(it) }
+                userPolylines.clear()
+                result.success(true)
+            }
+            "addCircles" -> {
+                val list = (call.arguments as? Map<*, *>)?.get("circles") as? List<*>
+                if (list == null) {
+                    result.success(false)
+                    return
+                }
+                addCircles(list)
+                result.success(true)
+            }
+            "removeCircle" -> {
+                val id = (call.arguments as? Map<*, *>)?.get("id") as? String
+                if (id != null) removeCircleById(id)
+                result.success(true)
+            }
+            "clearCircles" -> {
+                circlePolygons.values.forEach { polygonAnnotationManager?.delete(it) }
+                circleStrokes.values.forEach { polylineAnnotationManager?.delete(it) }
+                circlePolygons.clear()
+                circleStrokes.clear()
+                result.success(true)
+            }
             "addWayPoints" -> {
                 addWayPoints(call, result)
             }
@@ -534,6 +589,13 @@ class EmbeddedNavigationMapView(
         if (circleAnnotationManager == null) {
             circleAnnotationManager = mapView.annotations.createCircleAnnotationManager()
         }
+        if (polygonAnnotationManager == null) {
+            polygonAnnotationManager = mapView.annotations.createPolygonAnnotationManager()
+        }
+        if (polylineAnnotationManager == null) {
+            polylineAnnotationManager = mapView.annotations.createPolylineAnnotationManager()
+        }
+        // Create the point manager last so labels/icons draw above the shapes.
         if (pointAnnotationManager == null) {
             pointAnnotationManager = mapView.annotations.createPointAnnotationManager()
         }
@@ -549,32 +611,158 @@ class EmbeddedNavigationMapView(
             val color = marker["color"] as? String ?: "#FF3B30"
             val radius = marker["radius"] as? Double ?: 8.0
             val label = marker["label"] as? String
+            val imageBase64 = marker["imageBase64"] as? String
 
             // Replace any existing marker that uses the same id.
             removeMarkerById(id)
 
             val point = Point.fromLngLat(lng, lat)
-            circleAnnotationManager?.create(
-                CircleAnnotationOptions()
-                    .withPoint(point)
-                    .withCircleRadius(radius)
-                    .withCircleColor(color)
-                    .withCircleStrokeColor("#FFFFFF")
-                    .withCircleStrokeWidth(2.0)
-            )?.let { markerCircles[id] = it }
+            val bitmap = decodeMarkerBitmap(
+                imageBase64,
+                marker["imageWidth"] as? Double,
+                marker["imageHeight"] as? Double
+            )
 
-            if (!label.isNullOrEmpty()) {
-                pointAnnotationManager?.create(
-                    PointAnnotationOptions()
-                        .withPoint(point)
-                        .withTextField(label)
-                        .withTextOffset(listOf(0.0, -1.6))
+            if (bitmap != null) {
+                // Custom image icon (optionally with a label below it).
+                val opts = PointAnnotationOptions()
+                    .withPoint(point)
+                    .withIconImage(bitmap)
+                if (!label.isNullOrEmpty()) {
+                    opts.withTextField(label)
+                        .withTextOffset(listOf(0.0, 1.4))
                         .withTextColor("#000000")
                         .withTextHaloColor("#FFFFFF")
                         .withTextHaloWidth(1.0)
-                )?.let { markerLabels[id] = it }
+                }
+                pointAnnotationManager?.create(opts)?.let { markerLabels[id] = it }
+            } else {
+                // Default colored circle, plus an optional text label.
+                circleAnnotationManager?.create(
+                    CircleAnnotationOptions()
+                        .withPoint(point)
+                        .withCircleRadius(radius)
+                        .withCircleColor(color)
+                        .withCircleStrokeColor("#FFFFFF")
+                        .withCircleStrokeWidth(2.0)
+                )?.let { markerCircles[id] = it }
+
+                if (!label.isNullOrEmpty()) {
+                    pointAnnotationManager?.create(
+                        PointAnnotationOptions()
+                            .withPoint(point)
+                            .withTextField(label)
+                            .withTextOffset(listOf(0.0, -1.6))
+                            .withTextColor("#000000")
+                            .withTextHaloColor("#FFFFFF")
+                            .withTextHaloWidth(1.0)
+                    )?.let { markerLabels[id] = it }
+                }
             }
         }
+    }
+
+    private fun decodeMarkerBitmap(
+        base64: String?,
+        width: Double?,
+        height: Double?
+    ): android.graphics.Bitmap? {
+        if (base64.isNullOrEmpty()) return null
+        return try {
+            val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: return null
+            val density = root.resources.displayMetrics.density
+            if (width != null && height != null) {
+                android.graphics.Bitmap.createScaledBitmap(
+                    bitmap,
+                    (width * density).toInt(),
+                    (height * density).toInt(),
+                    true
+                )
+            } else {
+                bitmap
+            }
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private fun addPolylines(list: List<*>) {
+        ensureAnnotationManagers()
+        list.forEach { raw ->
+            val item = raw as? Map<*, *> ?: return@forEach
+            val id = item["id"] as? String ?: return@forEach
+            val color = item["color"] as? String ?: "#1A73E8"
+            val width = item["width"] as? Double ?: 5.0
+            val points = (item["points"] as? List<*>)?.mapNotNull { p ->
+                val pair = p as? List<*> ?: return@mapNotNull null
+                val plat = (pair.getOrNull(0) as? Number)?.toDouble()
+                val plng = (pair.getOrNull(1) as? Number)?.toDouble()
+                if (plat != null && plng != null) Point.fromLngLat(plng, plat) else null
+            } ?: return@forEach
+            if (points.size < 2) return@forEach
+
+            userPolylines.remove(id)?.let { polylineAnnotationManager?.delete(it) }
+            polylineAnnotationManager?.create(
+                PolylineAnnotationOptions()
+                    .withPoints(points)
+                    .withLineColor(android.graphics.Color.parseColor(color))
+                    .withLineWidth(width)
+            )?.let { userPolylines[id] = it }
+        }
+    }
+
+    private fun addCircles(list: List<*>) {
+        ensureAnnotationManagers()
+        list.forEach { raw ->
+            val item = raw as? Map<*, *> ?: return@forEach
+            val id = item["id"] as? String ?: return@forEach
+            val lat = item["latitude"] as? Double ?: return@forEach
+            val lng = item["longitude"] as? Double ?: return@forEach
+            val radius = item["radiusMeters"] as? Double ?: return@forEach
+            val fill = item["fillColor"] as? String ?: "#331A73E8"
+            val stroke = item["strokeColor"] as? String ?: "#1A73E8"
+            val strokeWidth = item["strokeWidth"] as? Double ?: 2.0
+
+            removeCircleById(id)
+            val ring = circleRing(lat, lng, radius)
+
+            polygonAnnotationManager?.create(
+                PolygonAnnotationOptions()
+                    .withPoints(listOf(ring))
+                    .withFillColor(android.graphics.Color.parseColor(fill))
+            )?.let { circlePolygons[id] = it }
+
+            polylineAnnotationManager?.create(
+                PolylineAnnotationOptions()
+                    .withPoints(ring)
+                    .withLineColor(android.graphics.Color.parseColor(stroke))
+                    .withLineWidth(strokeWidth)
+            )?.let { circleStrokes[id] = it }
+        }
+    }
+
+    /** Approximate a metric-radius circle as a 64-point geographic ring. */
+    private fun circleRing(lat: Double, lng: Double, radiusMeters: Double): List<Point> {
+        val points = mutableListOf<Point>()
+        val earth = 6378137.0
+        val latRad = Math.toRadians(lat)
+        val steps = 64
+        for (i in 0..steps) {
+            val angle = 2.0 * Math.PI * i / steps
+            val dx = radiusMeters * Math.cos(angle)
+            val dy = radiusMeters * Math.sin(angle)
+            val dLat = Math.toDegrees(dy / earth)
+            val dLng = Math.toDegrees(dx / (earth * Math.cos(latRad)))
+            points.add(Point.fromLngLat(lng + dLng, lat + dLat))
+        }
+        return points
+    }
+
+    private fun removeCircleById(id: String) {
+        circlePolygons.remove(id)?.let { polygonAnnotationManager?.delete(it) }
+        circleStrokes.remove(id)?.let { polylineAnnotationManager?.delete(it) }
     }
 
     private fun removeMarkerById(id: String) {

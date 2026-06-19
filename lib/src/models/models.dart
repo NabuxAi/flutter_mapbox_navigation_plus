@@ -3,6 +3,7 @@ export 'events.dart';
 export 'feedback.dart';
 export 'camera_position.dart';
 export 'map_marker.dart';
+export 'map_shapes.dart';
 export 'navmode.dart';
 export 'offline_region.dart';
 export 'options.dart';

@@ -203,6 +203,53 @@ class MapBoxNavigationViewController {
         .then((dynamic result) => result as bool? ?? false);
   }
 
+  /// Adds (or replaces, by id) one or more [polylines] on the map.
+  Future<bool> addPolylines(List<MapPolyline> polylines) async {
+    return _methodChannel
+        .invokeMethod<bool>('addPolylines', <String, dynamic>{
+          'polylines': polylines.map((p) => p.toMap()).toList(),
+        })
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes a single polyline by [id].
+  Future<bool> removePolyline(String id) async {
+    return _methodChannel
+        .invokeMethod<bool>('removePolyline', <String, dynamic>{'id': id})
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes all polylines added with [addPolylines].
+  Future<bool> clearPolylines() async {
+    return _methodChannel
+        .invokeMethod<bool>('clearPolylines')
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Adds (or replaces, by id) one or more meter-radius [circles] (geo-fences,
+  /// delivery zones, service areas) on the map.
+  Future<bool> addCircles(List<MapCircle> circles) async {
+    return _methodChannel
+        .invokeMethod<bool>('addCircles', <String, dynamic>{
+          'circles': circles.map((c) => c.toMap()).toList(),
+        })
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes a single circle by [id].
+  Future<bool> removeCircle(String id) async {
+    return _methodChannel
+        .invokeMethod<bool>('removeCircle', <String, dynamic>{'id': id})
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Removes all circles added with [addCircles].
+  Future<bool> clearCircles() async {
+    return _methodChannel
+        .invokeMethod<bool>('clearCircles')
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
   /// Promotes the alternative route at [index] (as delivered by the
   /// `alternative_routes` event) to the primary route. Returns true on success.
   Future<bool> selectAlternativeRoute(int index) async {
