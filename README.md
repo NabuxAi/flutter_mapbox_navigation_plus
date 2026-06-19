@@ -307,6 +307,23 @@ await _controller.addWayPoints(wayPoints: [
 ]);
 ```
 
+## Camera Control
+
+Drive the embedded map's camera from Dart:
+
+```dart
+await _controller.moveCamera(
+  latitude: 23.588, longitude: 58.383, zoom: 15, tilt: 45,
+);
+await _controller.fitBounds(
+  southwestLat: 23.55, southwestLng: 58.35,
+  northeastLat: 23.62, northeastLng: 58.42,
+);
+await _controller.overview();          // frame the whole route
+final pos = await _controller.getCameraPosition();
+await _controller.recenter();          // back to navigation-following mode
+```
+
 ## Building a Custom Navigation UI
 
 The embedded view streams rich, raw guidance data so you can build your own

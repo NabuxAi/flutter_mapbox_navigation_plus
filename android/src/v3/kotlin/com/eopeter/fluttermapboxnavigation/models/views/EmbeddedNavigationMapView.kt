@@ -64,6 +64,8 @@ import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.animation.MapAnimationOptions
+import com.mapbox.maps.CoordinateBounds
 import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
@@ -445,6 +447,29 @@ class EmbeddedNavigationMapView(
                 sendEvent("camera_state_changed", mapOf("state" to "following"))
                 result.success(true)
             }
+            "overview" -> {
+                navigationCamera.requestNavigationCameraToOverview()
+                sendEvent("camera_state_changed", mapOf("state" to "overview"))
+                result.success(true)
+            }
+            "moveCamera" -> {
+                moveCamera(call, result)
+            }
+            "getCameraPosition" -> {
+                val c = mapView.mapboxMap.cameraState
+                result.success(
+                    mapOf(
+                        "latitude" to c.center.latitude(),
+                        "longitude" to c.center.longitude(),
+                        "zoom" to c.zoom,
+                        "bearing" to c.bearing,
+                        "tilt" to c.pitch
+                    )
+                )
+            }
+            "fitBounds" -> {
+                fitBounds(call, result)
+            }
             "toggleVoiceInstructions" -> {
                 val enabled = call.arguments as? Boolean ?: !voiceInstructionsEnabled
                 voiceInstructionsEnabled = enabled
@@ -608,6 +633,67 @@ class EmbeddedNavigationMapView(
                 }
             }
         )
+    }
+
+    private fun moveCamera(call: MethodCall, result: MethodChannel.Result) {
+        val a = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+        val lat = a["latitude"] as? Double
+        val lng = a["longitude"] as? Double
+        if (lat == null || lng == null) {
+            result.success(false)
+            return
+        }
+        // Detach the navigation camera so it stops fighting a manual move.
+        navigationCamera.requestNavigationCameraToIdle()
+        val builder = CameraOptions.Builder().center(Point.fromLngLat(lng, lat))
+        (a["zoom"] as? Double)?.let { builder.zoom(it) }
+        (a["bearing"] as? Double)?.let { builder.bearing(it) }
+        (a["tilt"] as? Double)?.let { builder.pitch(it) }
+        val camera = builder.build()
+        if (a["animate"] as? Boolean ?: true) {
+            val duration = (a["durationMs"] as? Number)?.toLong() ?: 1000L
+            mapView.camera.flyTo(
+                camera,
+                MapAnimationOptions.Builder().duration(duration).build()
+            )
+        } else {
+            mapView.mapboxMap.setCamera(camera)
+        }
+        result.success(true)
+    }
+
+    private fun fitBounds(call: MethodCall, result: MethodChannel.Result) {
+        val a = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+        val swLat = a["southwestLat"] as? Double
+        val swLng = a["southwestLng"] as? Double
+        val neLat = a["northeastLat"] as? Double
+        val neLng = a["northeastLng"] as? Double
+        if (swLat == null || swLng == null || neLat == null || neLng == null) {
+            result.success(false)
+            return
+        }
+        navigationCamera.requestNavigationCameraToIdle()
+        val density = root.resources.displayMetrics.density
+        val pad = ((a["padding"] as? Number)?.toDouble() ?: 40.0) * density
+        val bounds = CoordinateBounds(
+            Point.fromLngLat(swLng, swLat),
+            Point.fromLngLat(neLng, neLat)
+        )
+        val camera = mapView.mapboxMap.cameraForCoordinateBounds(
+            bounds,
+            EdgeInsets(pad, pad, pad, pad),
+            null,
+            null
+        )
+        if (a["animate"] as? Boolean ?: true) {
+            mapView.camera.flyTo(
+                camera,
+                MapAnimationOptions.Builder().duration(1000L).build()
+            )
+        } else {
+            mapView.mapboxMap.setCamera(camera)
+        }
+        result.success(true)
     }
 
     private fun sendAlternatives(routes: List<NavigationRoute>) {

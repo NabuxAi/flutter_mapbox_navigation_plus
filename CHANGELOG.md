@@ -1,3 +1,6 @@
+## 1.6.0
+* **Camera control from Dart** on the embedded view (Android & iOS): `moveCamera` (animated or instant; center/zoom/bearing/tilt), `overview` (frame the route), `getCameraPosition`, and `fitBounds` (fit a bounding box with padding). Adds a `CameraPosition` model.
+
 ## 1.5.1
 * Example app overhaul: a home menu plus a new **Custom Navigation UI** screen that builds a complete Flutter turn-by-turn UI on the embedded map (maneuver card with turn icons, ETA/distance/speed panel, alternative-route chips with selection, "add a stop", recenter and mute) — a reference for building your own branded UI from the route events.
 * Docs: README highlights the new markers / route-avoidance / alternatives / mid-trip-stops / CarPlay & Android Auto features and links to the custom-UI example.
