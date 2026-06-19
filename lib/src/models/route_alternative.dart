@@ -13,6 +13,7 @@ class RouteAlternative {
     required this.distance,
     required this.duration,
     this.isPrimary = false,
+    this.geometry = const <LatLng>[],
   });
 
   RouteAlternative.fromJson(Map<String, dynamic> json)
