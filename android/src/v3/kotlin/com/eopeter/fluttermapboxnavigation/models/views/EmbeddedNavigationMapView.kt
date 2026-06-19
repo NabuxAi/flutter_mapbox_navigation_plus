@@ -151,6 +151,7 @@ class EmbeddedNavigationMapView(
     private var durationRemaining: Double? = null
     private var hasArrived = false
     private var currentSpeed: Float? = null
+    private var lastLocation: com.mapbox.common.location.Location? = null
     private var currentStyle: Style? = null
     private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
 
@@ -206,12 +207,22 @@ class EmbeddedNavigationMapView(
         ) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
             currentSpeed = enhancedLocation.speed?.toFloat()
+            lastLocation = enhancedLocation
             navigationLocationProvider.changePosition(
                 enhancedLocation,
                 locationMatcherResult.keyPoints
             )
             viewportDataSource.onLocationChanged(enhancedLocation)
             viewportDataSource.evaluate()
+            sendEvent(
+                "location_change",
+                mapOf(
+                    "latitude" to enhancedLocation.latitude,
+                    "longitude" to enhancedLocation.longitude,
+                    "bearing" to enhancedLocation.bearing,
+                    "speed" to enhancedLocation.speed
+                )
+            )
         }
     }
 
@@ -474,6 +485,21 @@ class EmbeddedNavigationMapView(
             }
             "moveCamera" -> {
                 moveCamera(call, result)
+            }
+            "getCurrentLocation" -> {
+                val loc = lastLocation
+                if (loc == null) {
+                    result.success(null)
+                } else {
+                    result.success(
+                        mapOf(
+                            "latitude" to loc.latitude,
+                            "longitude" to loc.longitude,
+                            "bearing" to loc.bearing,
+                            "speed" to loc.speed
+                        )
+                    )
+                }
             }
             "getCameraPosition" -> {
                 val c = mapView.mapboxMap.cameraState
@@ -958,6 +984,11 @@ class EmbeddedNavigationMapView(
             }
             .coordinatesList(waypoints)
             .alternatives(arguments["alternatives"] as? Boolean ?: false)
+            .enableRefresh(
+                arguments["enableRefresh"] as? Boolean
+                    ?: this.options["enableRefresh"] as? Boolean
+                    ?: false
+            )
             .build()
 
         val navigation = MapboxNavigationApp.current()

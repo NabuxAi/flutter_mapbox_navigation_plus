@@ -30,5 +30,6 @@ enum MapBoxEvent {
   offline_region_error,
   offline_region_removed,
   alternative_routes,
-  waypoint_arrival
+  waypoint_arrival,
+  location_change
 }

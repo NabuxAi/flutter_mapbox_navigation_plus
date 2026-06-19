@@ -82,6 +82,19 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 result(true)
             case "moveCamera":
                 strongSelf.moveCamera(arguments: arguments, result: result)
+            case "getCurrentLocation":
+                let coord = strongSelf.navigationMapView?.mapView.location.latestLocation?.coordinate
+                    ?? strongSelf._lastKnownLocation?.coordinate
+                if let coord = coord {
+                    result([
+                        "latitude": coord.latitude,
+                        "longitude": coord.longitude,
+                        "bearing": strongSelf._lastKnownLocation?.course ?? 0,
+                        "speed": max(strongSelf._lastKnownLocation?.speed ?? 0, 0),
+                    ])
+                } else {
+                    result(nil)
+                }
             case "getCameraPosition":
                 let c = strongSelf.navigationMapView.mapView.mapboxMap.cameraState
                 result([

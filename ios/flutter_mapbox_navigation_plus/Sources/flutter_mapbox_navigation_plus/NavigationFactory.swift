@@ -456,6 +456,12 @@ extension NavigationFactory : NavigationViewControllerDelegate {
             _navigationRunningNotified = true
             sendEvent(eventType: .navigation_running)
         }
+        sendObjectEvent(eventType: "location_change", data: [
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "bearing": location.course,
+            "speed": max(location.speed, 0),
+        ])
         if(_eventSink != nil)
         {
             let jsonEncoder = JSONEncoder()

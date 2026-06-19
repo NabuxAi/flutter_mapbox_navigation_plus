@@ -460,6 +460,7 @@ class NavigationActivity : AppCompatActivity() {
             }
             .coordinatesList(waypoints)
             .alternatives(intent.getBooleanExtra("alternatives", false))
+            .enableRefresh(intent.getBooleanExtra("enableRefresh", false))
             .build()
 
         FlutterMapboxNavigationPlugin.sendEvent("route_building")

@@ -331,6 +331,15 @@ await _controller.addCircles([
 // removePolyline / clearPolylines / removeCircle / clearCircles are also available.
 ```
 
+## Current Location & Route Refresh
+
+```dart
+final loc = await _controller.getCurrentLocation(); // UserLocation? (lat/lng/bearing/speed)
+```
+
+Listen for live location updates via the `location_change` event, and enable
+live-traffic route refresh with `MapBoxOptions(enableRefresh: true)`.
+
 ## Camera Control
 
 Drive the embedded map's camera from Dart:
