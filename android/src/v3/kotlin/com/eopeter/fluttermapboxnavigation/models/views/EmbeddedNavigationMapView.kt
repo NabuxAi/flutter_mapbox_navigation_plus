@@ -223,7 +223,12 @@ class EmbeddedNavigationMapView(
 
         override fun onNextRouteLegStart(routeLegProgress: RouteLegProgress) = Unit
 
-        override fun onWaypointArrival(routeProgress: RouteProgress) = Unit
+        override fun onWaypointArrival(routeProgress: RouteProgress) {
+            sendEvent(
+                "waypoint_arrival",
+                mapOf("index" to (routeProgress.currentLegProgress?.legIndex ?: 0))
+            )
+        }
     }
 
     private val offRouteObserver = OffRouteObserver { offRoute ->
@@ -274,6 +279,8 @@ class EmbeddedNavigationMapView(
                 "upcomingInstruction" to (
                     upcomingStep?.maneuver()?.instruction() ?: ""
                     ),
+                "currentRoadName" to (currentStep?.name() ?: ""),
+                "upcomingRoadName" to (upcomingStep?.name() ?: ""),
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
                 "isPrimary" to true,
@@ -891,10 +898,23 @@ class EmbeddedNavigationMapView(
                 "index" to index,
                 "distance" to route.directionsRoute.distance(),
                 "duration" to route.directionsRoute.duration(),
-                "isPrimary" to (index == 0)
+                "isPrimary" to (index == 0),
+                "geometry" to routeGeometry(route)
             )
         }
         sendEvent("alternative_routes", list)
+    }
+
+    /** Decode a route's polyline into a list of [lat, lng] pairs for Dart. */
+    private fun routeGeometry(route: NavigationRoute): List<List<Double>> {
+        val geometry = route.directionsRoute.geometry() ?: return emptyList()
+        return try {
+            com.mapbox.geojson.LineString.fromPolyline(geometry, 6)
+                .coordinates()
+                .map { listOf(it.latitude(), it.longitude()) }
+        } catch (e: RuntimeException) {
+            emptyList()
+        }
     }
 
     private fun buildRoute(call: MethodCall, result: MethodChannel.Result) {

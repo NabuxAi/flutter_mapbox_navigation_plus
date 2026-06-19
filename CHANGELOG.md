@@ -1,3 +1,9 @@
+## 1.8.0
+* **Richer navigation events & data** (Android & iOS, embedded and full-screen):
+  * New `waypoint_arrival` event when an intermediate stop is reached (with its index/name). `on_arrival` now fires only at the final destination on iOS, matching Android.
+  * `RouteProgressEvent` gains `currentRoadName` and `upcomingRoadName`.
+  * `RouteAlternative` now carries the route `geometry` (a `List<LatLng>`) so you can draw a preview/minimap of each route option.
+
 ## 1.7.0
 * **Draw on the map from Dart** (embedded view, Android & iOS):
   * **Image markers** — `MapMarker.imageBase64` (+ optional `imageWidth`/`imageHeight`) draws a custom PNG icon instead of the default circle.

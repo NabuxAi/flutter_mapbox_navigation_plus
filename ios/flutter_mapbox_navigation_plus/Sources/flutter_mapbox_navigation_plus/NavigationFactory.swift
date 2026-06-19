@@ -397,6 +397,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
             "distance": main.distance,
             "duration": main.expectedTravelTime,
             "isPrimary": true,
+            "geometry": routeGeometry(main),
         ])
         for (offset, alternative) in routes.alternativeRoutes.enumerated() {
             let route = alternative.route
@@ -405,9 +406,22 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
                 "distance": route.distance,
                 "duration": route.expectedTravelTime,
                 "isPrimary": false,
+                "geometry": routeGeometry(route),
             ])
         }
         sendArrayEvent(eventType: "alternative_routes", data: list)
+    }
+
+    /// A route's geometry as a list of [lat, lng] pairs for Dart.
+    func routeGeometry(_ route: Route) -> [[Double]] {
+        return route.shape?.coordinates.map { [$0.latitude, $0.longitude] } ?? []
+    }
+
+    /// Whether `waypoint` is the final destination (vs an intermediate stop).
+    func isFinalWaypoint(_ waypoint: Waypoint) -> Bool {
+        guard let last = _wayPoints.last else { return true }
+        return abs(last.coordinate.latitude - waypoint.coordinate.latitude) < 1e-6
+            && abs(last.coordinate.longitude - waypoint.coordinate.longitude) < 1e-6
     }
 
     func encodeRouteResponse(routes: NavigationRoutes) -> String {
@@ -457,7 +471,11 @@ extension NavigationFactory : NavigationViewControllerDelegate {
     }
 
     public func navigationViewController(_ navigationViewController: NavigationViewController, didArriveAt waypoint: Waypoint) {
-        sendEvent(eventType: .on_arrival, data: "true")
+        if isFinalWaypoint(waypoint) {
+            sendEvent(eventType: .on_arrival, data: "true")
+        } else {
+            sendObjectEvent(eventType: "waypoint_arrival", data: ["name": waypoint.name ?? ""])
+        }
     }
 
     public func navigationViewControllerDidDismiss(_ navigationViewController: NavigationViewController, byCanceling canceled: Bool) {

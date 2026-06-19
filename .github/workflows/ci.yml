@@ -77,4 +77,7 @@ jobs:
         run: flutter config --enable-swift-package-manager
       - name: Build example (compiles the v3 Swift sources via SPM)
         working-directory: example
-        run: flutter build ios --debug --no-codesign
+        # Build for the simulator: this compiles all Swift sources but skips
+        # code signing, which a device build now requires (a Development Team)
+        # under the current Flutter toolchain even with --no-codesign.
+        run: flutter build ios --debug --simulator
