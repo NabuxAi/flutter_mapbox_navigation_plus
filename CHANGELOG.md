@@ -1,3 +1,10 @@
+## 1.10.0
+* **Place search & geocoding** — a new pure-Dart `MapBoxSearch` client (no native SDK; works on Android, iOS & web):
+  * `forwardGeocode` / `reverseGeocode` (Geocoding v6).
+  * `suggest` + `retrieve` interactive autocomplete (Search Box API, session-billed).
+  * New models `GeocodingFeature` (with `toWayPoint()`) and `SearchSuggestion`; a typed `MapBoxSearchException`.
+  * Adds an `http` dependency; unit-tested with a mocked client.
+
 ## 1.9.0
 * **Current location & location stream** — `getCurrentLocation()` returns the device's position (`UserLocation`: lat/lng/bearing/speed), and a `location_change` event streams updates (Android: always; iOS: during active navigation).
 * **Route Refresh** — `MapBoxOptions.enableRefresh` is now wired on Android (embedded & full-screen) so live traffic/incident data refreshes the active route.

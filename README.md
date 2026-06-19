@@ -331,6 +331,29 @@ await _controller.addCircles([
 // removePolyline / clearPolylines / removeCircle / clearCircles are also available.
 ```
 
+## Place Search & Geocoding
+
+Let users find a destination by name or address. `MapBoxSearch` is a pure-Dart
+client over the Mapbox REST APIs (no native SDK), so it works on Android, iOS
+and web. Pair it with `addMarkers` / `buildRoute` to go from a search result
+straight to navigation.
+
+```dart
+final search = MapBoxSearch(accessToken: 'pk.your_public_token');
+
+// One-shot geocoding:
+final places = await search.forwardGeocode('Muscat airport');
+final wp = places.first.toWayPoint();
+
+// Interactive autocomplete (reuse one sessionToken per search session):
+final suggestions = await search.suggest('coff', sessionToken: 'session-1');
+final place = await search.retrieve(suggestions.first.mapboxId,
+    sessionToken: 'session-1');
+
+// Reverse geocoding:
+final here = await search.reverseGeocode(23.588, 58.383);
+```
+
 ## Current Location & Route Refresh
 
 ```dart
