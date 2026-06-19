@@ -214,6 +214,69 @@ class MapBoxNavigationViewController {
         .then((dynamic result) => result as bool? ?? false);
   }
 
+  /// Moves the camera to the given target. By default the move is animated;
+  /// pass `animate: false` for an instant jump. Omitted [zoom]/[bearing]/[tilt]
+  /// keep their current value. This switches the camera out of the automatic
+  /// navigation-following mode until [recenter]/[overview] is called.
+  Future<bool> moveCamera({
+    required double latitude,
+    required double longitude,
+    double? zoom,
+    double? bearing,
+    double? tilt,
+    bool animate = true,
+    int durationMs = 1000,
+  }) async {
+    return _methodChannel
+        .invokeMethod<bool>('moveCamera', <String, dynamic>{
+          'latitude': latitude,
+          'longitude': longitude,
+          'zoom': zoom,
+          'bearing': bearing,
+          'tilt': tilt,
+          'animate': animate,
+          'durationMs': durationMs,
+        })
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Frames the whole route (or the given bounds) in an overview camera.
+  Future<bool> overview() async {
+    return _methodChannel
+        .invokeMethod<bool>('overview')
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
+  /// Returns the current camera position, or null if unavailable.
+  Future<CameraPosition?> getCameraPosition() async {
+    final map = await _methodChannel
+        .invokeMethod<Map<dynamic, dynamic>>('getCameraPosition');
+    if (map == null) return null;
+    return CameraPosition.fromMap(map);
+  }
+
+  /// Moves the camera so the given bounding box is visible, with [padding] in
+  /// logical pixels on every edge.
+  Future<bool> fitBounds({
+    required double southwestLat,
+    required double southwestLng,
+    required double northeastLat,
+    required double northeastLng,
+    double padding = 40,
+    bool animate = true,
+  }) async {
+    return _methodChannel
+        .invokeMethod<bool>('fitBounds', <String, dynamic>{
+          'southwestLat': southwestLat,
+          'southwestLng': southwestLng,
+          'northeastLat': northeastLat,
+          'northeastLng': northeastLng,
+          'padding': padding,
+          'animate': animate,
+        })
+        .then((dynamic result) => result as bool? ?? false);
+  }
+
   /// Generic Handler for Messages sent from the Platform
   Future<dynamic> _handleMethod(MethodCall call) async {
     switch (call.method) {

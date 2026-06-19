@@ -72,6 +72,22 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             case "recenter", "reCenter":
                 strongSelf.recenterEmbeddedCamera()
                 result(true)
+            case "overview":
+                strongSelf.navigationMapView?.navigationCamera.update(cameraState: .overview)
+                result(true)
+            case "moveCamera":
+                strongSelf.moveCamera(arguments: arguments, result: result)
+            case "getCameraPosition":
+                let c = strongSelf.navigationMapView.mapView.mapboxMap.cameraState
+                result([
+                    "latitude": c.center.latitude,
+                    "longitude": c.center.longitude,
+                    "zoom": c.zoom,
+                    "bearing": c.bearing,
+                    "tilt": c.pitch,
+                ])
+            case "fitBounds":
+                strongSelf.fitBounds(arguments: arguments, result: result)
             case "toggleVoiceInstructions":
                 let requested = call.arguments as? Bool
                 result(strongSelf.toggleEmbeddedVoiceInstructions(requested))
@@ -363,6 +379,58 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 result(true)
             }
         }
+    }
+
+    func moveCamera(arguments: NSDictionary?, result: @escaping FlutterResult) {
+        guard let lat = arguments?["latitude"] as? Double,
+              let lng = arguments?["longitude"] as? Double else {
+            result(false)
+            return
+        }
+        // Detach the navigation camera so it stops driving the view.
+        navigationMapView?.navigationCamera.update(cameraState: .idle)
+        var camera = CameraOptions(center: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+        if let zoom = arguments?["zoom"] as? Double { camera.zoom = zoom }
+        if let bearing = arguments?["bearing"] as? Double { camera.bearing = bearing }
+        if let tilt = arguments?["tilt"] as? Double { camera.pitch = tilt }
+
+        let mapView = navigationMapView.mapView
+        if arguments?["animate"] as? Bool ?? true {
+            let ms = (arguments?["durationMs"] as? Int) ?? 1000
+            mapView.camera.fly(to: camera, duration: Double(ms) / 1000.0)
+        } else {
+            mapView.mapboxMap.setCamera(to: camera)
+        }
+        result(true)
+    }
+
+    func fitBounds(arguments: NSDictionary?, result: @escaping FlutterResult) {
+        guard let swLat = arguments?["southwestLat"] as? Double,
+              let swLng = arguments?["southwestLng"] as? Double,
+              let neLat = arguments?["northeastLat"] as? Double,
+              let neLng = arguments?["northeastLng"] as? Double else {
+            result(false)
+            return
+        }
+        navigationMapView?.navigationCamera.update(cameraState: .idle)
+        let pad = arguments?["padding"] as? Double ?? 40
+        let coordinates = [
+            CLLocationCoordinate2D(latitude: neLat, longitude: neLng),
+            CLLocationCoordinate2D(latitude: swLat, longitude: swLng),
+        ]
+        let mapView = navigationMapView.mapView
+        let camera = mapView.mapboxMap.camera(
+            for: coordinates,
+            padding: UIEdgeInsets(top: pad, left: pad, bottom: pad, right: pad),
+            bearing: nil,
+            pitch: nil
+        )
+        if arguments?["animate"] as? Bool ?? true {
+            mapView.camera.fly(to: camera, duration: 1.0)
+        } else {
+            mapView.mapboxMap.setCamera(to: camera)
+        }
+        result(true)
     }
 
     func recenterEmbeddedCamera() {
