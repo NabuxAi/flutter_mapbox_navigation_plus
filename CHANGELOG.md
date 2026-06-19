@@ -1,3 +1,10 @@
+## 1.7.0
+* **Draw on the map from Dart** (embedded view, Android & iOS):
+  * **Image markers** — `MapMarker.imageBase64` (+ optional `imageWidth`/`imageHeight`) draws a custom PNG icon instead of the default circle.
+  * **Polylines** — `addPolylines` / `removePolyline` / `clearPolylines` with `MapPolyline` (color, width).
+  * **Meter-radius circles / geo-fences** — `addCircles` / `removeCircle` / `clearCircles` with `MapCircle` (radius in meters, fill/stroke), rendered as a polygon so the radius stays correct at any zoom.
+  * New models: `MapPolyline`, `MapCircle`, `LatLng`.
+
 ## 1.6.0
 * **Camera control from Dart** on the embedded view (Android & iOS): `moveCamera` (animated or instant; center/zoom/bearing/tilt), `overview` (frame the route), `getCameraPosition`, and `fitBounds` (fit a bounding box with padding). Adds a `CameraPosition` model.
 

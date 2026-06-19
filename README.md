@@ -307,6 +307,30 @@ await _controller.addWayPoints(wayPoints: [
 ]);
 ```
 
+## Drawing on the Map
+
+Beyond circle markers you can draw custom **image markers**, **polylines**, and
+**meter-radius circles / geo-fences** from Dart on the embedded view:
+
+```dart
+// Image marker (base64 PNG) with an optional label:
+await _controller.addMarkers([
+  MapMarker(id: 'car', latitude: 23.59, longitude: 58.38,
+      imageBase64: myPngBase64, imageWidth: 40, imageHeight: 40, label: 'Driver'),
+]);
+
+// A polyline (e.g. a trip path):
+await _controller.addPolylines([
+  MapPolyline(id: 'path', points: [LatLng(23.59, 58.38), LatLng(23.60, 58.40)]),
+]);
+
+// A delivery zone / geo-fence (radius in meters):
+await _controller.addCircles([
+  MapCircle(id: 'zone', latitude: 23.59, longitude: 58.38, radiusMeters: 500),
+]);
+// removePolyline / clearPolylines / removeCircle / clearCircles are also available.
+```
+
 ## Camera Control
 
 Drive the embedded map's camera from Dart:

@@ -25,8 +25,13 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     // Dart-driven map markers, keyed by the caller-provided id.
     var circleAnnotationManager: CircleAnnotationManager?
     var pointAnnotationManager: PointAnnotationManager?
+    var polylineAnnotationManager: PolylineAnnotationManager?
+    var polygonAnnotationManager: PolygonAnnotationManager?
     var markerCircles: [String: CircleAnnotation] = [:]
     var markerLabels: [String: PointAnnotation] = [:]
+    var userPolylines: [String: PolylineAnnotation] = [:]
+    var circlePolygons: [String: PolygonAnnotation] = [:]
+    var circleStrokes: [String: PolylineAnnotation] = [:]
 
     init(messenger: FlutterBinaryMessenger, frame: CGRect, viewId: Int64, args: Any?)
     {
@@ -105,6 +110,32 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 result(true)
             case "clearMarkers":
                 strongSelf.clearMarkers()
+                result(true)
+            case "addPolylines":
+                if let list = arguments?["polylines"] as? [Any] {
+                    strongSelf.addPolylines(list)
+                    result(true)
+                } else {
+                    result(false)
+                }
+            case "removePolyline":
+                if let id = arguments?["id"] as? String { strongSelf.removePolyline(id: id) }
+                result(true)
+            case "clearPolylines":
+                strongSelf.clearPolylines()
+                result(true)
+            case "addCircles":
+                if let list = arguments?["circles"] as? [Any] {
+                    strongSelf.addCircles(list)
+                    result(true)
+                } else {
+                    result(false)
+                }
+            case "removeCircle":
+                if let id = arguments?["id"] as? String { strongSelf.removeCircle(id: id) }
+                result(true)
+            case "clearCircles":
+                strongSelf.clearCircles()
                 result(true)
             case "addWayPoints":
                 strongSelf.addEmbeddedWayPoints(arguments: arguments, result: result)
@@ -465,9 +496,16 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
 extension FlutterMapboxNavigationView {
 
     func ensureAnnotationManagers() {
+        if polygonAnnotationManager == nil {
+            polygonAnnotationManager = navigationMapView.mapView.annotations.makePolygonAnnotationManager()
+        }
         if circleAnnotationManager == nil {
             circleAnnotationManager = navigationMapView.mapView.annotations.makeCircleAnnotationManager()
         }
+        if polylineAnnotationManager == nil {
+            polylineAnnotationManager = navigationMapView.mapView.annotations.makePolylineAnnotationManager()
+        }
+        // Point manager last so labels/icons draw above the shapes.
         if pointAnnotationManager == nil {
             pointAnnotationManager = navigationMapView.mapView.annotations.makePointAnnotationManager()
         }
@@ -483,25 +521,57 @@ extension FlutterMapboxNavigationView {
             let colorHex = marker["color"] as? String ?? "#FF3B30"
             let radius = marker["radius"] as? Double ?? 8.0
             let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            let label = marker["label"] as? String
 
-            var circle = CircleAnnotation(centerCoordinate: coordinate)
-            circle.circleRadius = radius
-            circle.circleColor = StyleColor(UIColor(hexString: colorHex))
-            circle.circleStrokeColor = StyleColor(UIColor.white)
-            circle.circleStrokeWidth = 2.0
-            markerCircles[id] = circle
+            // Remove any existing marker/icon under this id first.
+            markerCircles.removeValue(forKey: id)
+            markerLabels.removeValue(forKey: id)
 
-            if let label = marker["label"] as? String, !label.isEmpty {
+            if let image = decodeMarkerImage(
+                marker["imageBase64"] as? String,
+                width: marker["imageWidth"] as? Double,
+                height: marker["imageHeight"] as? Double
+            ) {
                 var point = PointAnnotation(coordinate: coordinate)
-                point.textField = label
-                point.textOffset = [0, -1.6]
-                point.textColor = StyleColor(UIColor.black)
-                point.textHaloColor = StyleColor(UIColor.white)
-                point.textHaloWidth = 1.0
+                point.image = .init(image: image, name: "marker-\(id)")
+                if let label = label, !label.isEmpty {
+                    point.textField = label
+                    point.textOffset = [0, 1.4]
+                    point.textColor = StyleColor(UIColor.black)
+                    point.textHaloColor = StyleColor(UIColor.white)
+                    point.textHaloWidth = 1.0
+                }
                 markerLabels[id] = point
+            } else {
+                var circle = CircleAnnotation(centerCoordinate: coordinate)
+                circle.circleRadius = radius
+                circle.circleColor = StyleColor(UIColor(hexString: colorHex))
+                circle.circleStrokeColor = StyleColor(UIColor.white)
+                circle.circleStrokeWidth = 2.0
+                markerCircles[id] = circle
+
+                if let label = label, !label.isEmpty {
+                    var point = PointAnnotation(coordinate: coordinate)
+                    point.textField = label
+                    point.textOffset = [0, -1.6]
+                    point.textColor = StyleColor(UIColor.black)
+                    point.textHaloColor = StyleColor(UIColor.white)
+                    point.textHaloWidth = 1.0
+                    markerLabels[id] = point
+                }
             }
         }
         syncAnnotations()
+    }
+
+    private func decodeMarkerImage(_ base64: String?, width: Double?, height: Double?) -> UIImage? {
+        guard let base64 = base64, !base64.isEmpty,
+              let data = Data(base64Encoded: base64),
+              let image = UIImage(data: data) else { return nil }
+        guard let width = width, let height = height else { return image }
+        let size = CGSize(width: width, height: height)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
     }
 
     func removeMarker(id: String) {
@@ -516,9 +586,102 @@ extension FlutterMapboxNavigationView {
         syncAnnotations()
     }
 
+    func addPolylines(_ list: [Any]) {
+        ensureAnnotationManagers()
+        for raw in list {
+            guard let item = raw as? [String: Any],
+                  let id = item["id"] as? String,
+                  let pts = item["points"] as? [Any] else { continue }
+            let coords = pts.compactMap { p -> CLLocationCoordinate2D? in
+                guard let pair = p as? [Any], pair.count >= 2,
+                      let plat = pair[0] as? Double, let plng = pair[1] as? Double else { return nil }
+                return CLLocationCoordinate2D(latitude: plat, longitude: plng)
+            }
+            if coords.count < 2 { continue }
+            let colorHex = item["color"] as? String ?? "#1A73E8"
+            let width = item["width"] as? Double ?? 5.0
+            var line = PolylineAnnotation(lineCoordinates: coords)
+            line.lineColor = StyleColor(UIColor(hexString: colorHex))
+            line.lineWidth = width
+            userPolylines[id] = line
+        }
+        syncAnnotations()
+    }
+
+    func removePolyline(id: String) {
+        userPolylines.removeValue(forKey: id)
+        syncAnnotations()
+    }
+
+    func clearPolylines() {
+        userPolylines.removeAll()
+        syncAnnotations()
+    }
+
+    func addCircles(_ list: [Any]) {
+        ensureAnnotationManagers()
+        for raw in list {
+            guard let item = raw as? [String: Any],
+                  let id = item["id"] as? String,
+                  let lat = item["latitude"] as? Double,
+                  let lng = item["longitude"] as? Double,
+                  let radius = item["radiusMeters"] as? Double else { continue }
+            let fillHex = item["fillColor"] as? String ?? "#331A73E8"
+            let strokeHex = item["strokeColor"] as? String ?? "#1A73E8"
+            let strokeWidth = item["strokeWidth"] as? Double ?? 2.0
+
+            let ring = circleRing(latitude: lat, longitude: lng, radiusMeters: radius)
+            var polygon = PolygonAnnotation(polygon: Polygon([ring]))
+            let fillColor = UIColor(hexString: fillHex)
+            polygon.fillColor = StyleColor(fillColor)
+            var alpha: CGFloat = 0
+            fillColor.getRed(nil, green: nil, blue: nil, alpha: &alpha)
+            polygon.fillOpacity = Double(alpha)
+            circlePolygons[id] = polygon
+
+            var stroke = PolylineAnnotation(lineCoordinates: ring)
+            stroke.lineColor = StyleColor(UIColor(hexString: strokeHex))
+            stroke.lineWidth = strokeWidth
+            circleStrokes[id] = stroke
+        }
+        syncAnnotations()
+    }
+
+    func removeCircle(id: String) {
+        circlePolygons.removeValue(forKey: id)
+        circleStrokes.removeValue(forKey: id)
+        syncAnnotations()
+    }
+
+    func clearCircles() {
+        circlePolygons.removeAll()
+        circleStrokes.removeAll()
+        syncAnnotations()
+    }
+
+    /// Approximate a metric-radius circle as a 64-point geographic ring.
+    private func circleRing(latitude: Double, longitude: Double, radiusMeters: Double) -> [CLLocationCoordinate2D] {
+        var coords: [CLLocationCoordinate2D] = []
+        let earth = 6378137.0
+        let latRad = latitude * .pi / 180.0
+        let steps = 64
+        for i in 0...steps {
+            let angle = 2.0 * Double.pi * Double(i) / Double(steps)
+            let dx = radiusMeters * cos(angle)
+            let dy = radiusMeters * sin(angle)
+            let dLat = (dy / earth) * 180.0 / .pi
+            let dLng = (dx / (earth * cos(latRad))) * 180.0 / .pi
+            coords.append(CLLocationCoordinate2D(latitude: latitude + dLat, longitude: longitude + dLng))
+        }
+        return coords
+    }
+
     private func syncAnnotations() {
         circleAnnotationManager?.annotations = Array(markerCircles.values)
         pointAnnotationManager?.annotations = Array(markerLabels.values)
+        polylineAnnotationManager?.annotations =
+            Array(userPolylines.values) + Array(circleStrokes.values)
+        polygonAnnotationManager?.annotations = Array(circlePolygons.values)
     }
 }
 
