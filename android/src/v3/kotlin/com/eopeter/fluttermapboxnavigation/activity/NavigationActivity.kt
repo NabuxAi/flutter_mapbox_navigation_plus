@@ -168,7 +168,12 @@ class NavigationActivity : AppCompatActivity() {
         }
 
         override fun onNextRouteLegStart(routeLegProgress: RouteLegProgress) = Unit
-        override fun onWaypointArrival(routeProgress: RouteProgress) = Unit
+        override fun onWaypointArrival(routeProgress: RouteProgress) {
+            FlutterMapboxNavigationPlugin.sendEvent(
+                "waypoint_arrival",
+                mapOf("index" to (routeProgress.currentLegProgress?.legIndex ?: 0))
+            )
+        }
     }
 
     private val offRouteObserver = OffRouteObserver { offRoute ->
@@ -208,6 +213,21 @@ class NavigationActivity : AppCompatActivity() {
                 "currentLegDistanceRemaining" to (routeProgress.currentLegProgress?.distanceRemaining ?: 0.0),
                 "currentStepInstruction" to (
                     routeProgress.currentLegProgress?.currentStepProgress?.step?.maneuver()?.instruction() ?: ""
+                    ),
+                "maneuverType" to (
+                    routeProgress.currentLegProgress?.currentStepProgress?.step?.maneuver()?.type() ?: ""
+                    ),
+                "maneuverModifier" to (
+                    routeProgress.currentLegProgress?.currentStepProgress?.step?.maneuver()?.modifier() ?: ""
+                    ),
+                "upcomingInstruction" to (
+                    routeProgress.currentLegProgress?.upcomingStep?.maneuver()?.instruction() ?: ""
+                    ),
+                "currentRoadName" to (
+                    routeProgress.currentLegProgress?.currentStepProgress?.step?.name() ?: ""
+                    ),
+                "upcomingRoadName" to (
+                    routeProgress.currentLegProgress?.upcomingStep?.name() ?: ""
                     ),
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
@@ -505,7 +525,18 @@ class NavigationActivity : AppCompatActivity() {
                 "index" to index,
                 "distance" to route.directionsRoute.distance(),
                 "duration" to route.directionsRoute.duration(),
-                "isPrimary" to (index == 0)
+                "isPrimary" to (index == 0),
+                "geometry" to (
+                    route.directionsRoute.geometry()?.let { geo ->
+                        try {
+                            com.mapbox.geojson.LineString.fromPolyline(geo, 6)
+                                .coordinates()
+                                .map { listOf(it.latitude(), it.longitude()) }
+                        } catch (e: RuntimeException) {
+                            emptyList()
+                        }
+                    } ?: emptyList<List<Double>>()
+                    )
             )
         }
         FlutterMapboxNavigationPlugin.sendEvent("alternative_routes", list)

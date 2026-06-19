@@ -353,9 +353,12 @@ await _controller.recenter();          // back to navigation-following mode
 The embedded view streams rich, raw guidance data so you can build your own
 turn-by-turn UI with Flutter widgets on top of the native map. Each
 `progress_change` event's `RouteProgressEvent` includes `currentStepInstruction`,
-`upcomingInstruction`, `maneuverType`, `maneuverModifier`, `distance`,
-`duration` (ETA) and `currentSpeed` — everything needed to render a maneuver
-card, ETA bar, and speedometer in Dart.
+`upcomingInstruction`, `maneuverType`, `maneuverModifier`, `currentRoadName`,
+`upcomingRoadName`, `distance`, `duration` (ETA) and `currentSpeed` — everything
+needed to render a maneuver card, ETA bar, and speedometer in Dart. A
+`waypoint_arrival` event fires at each intermediate stop, and each
+`RouteAlternative` carries its `geometry` (a `List<LatLng>`) for drawing route
+previews.
 
 ## CarPlay & Android Auto
 

@@ -20,6 +20,8 @@ public class MapBoxRouteProgressEvent : Codable
     let maneuverType: String
     let maneuverModifier: String
     let upcomingInstruction: String
+    let currentRoadName: String
+    let upcomingRoadName: String
 
     init(progress: RouteProgress, currentSpeed: Double = 0.0) {
 
@@ -50,5 +52,7 @@ public class MapBoxRouteProgressEvent : Codable
         maneuverType = progress.currentLegProgress.currentStep.maneuverType.rawValue
         maneuverModifier = progress.currentLegProgress.currentStep.maneuverDirection?.rawValue ?? ""
         upcomingInstruction = progress.currentLegProgress.upcomingStep?.instructions ?? ""
+        currentRoadName = progress.currentLegProgress.currentStep.names?.first ?? ""
+        upcomingRoadName = progress.currentLegProgress.upcomingStep?.names?.first ?? ""
     }
 }

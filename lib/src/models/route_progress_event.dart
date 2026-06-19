@@ -27,6 +27,8 @@ class RouteProgressEvent {
     this.maneuverType,
     this.maneuverModifier,
     this.upcomingInstruction,
+    this.currentRoadName,
+    this.upcomingRoadName,
   });
 
   RouteProgressEvent.fromJson(Map<String, dynamic> json) {
@@ -71,6 +73,8 @@ class RouteProgressEvent {
     maneuverType = json['maneuverType'] as String?;
     maneuverModifier = json['maneuverModifier'] as String?;
     upcomingInstruction = json['upcomingInstruction'] as String?;
+    currentRoadName = json['currentRoadName'] as String?;
+    upcomingRoadName = json['upcomingRoadName'] as String?;
   }
 
   bool? arrived;
@@ -100,4 +104,10 @@ class RouteProgressEvent {
 
   /// Instruction text for the next (upcoming) step, when available.
   String? upcomingInstruction;
+
+  /// Name of the road the user is currently on, when available.
+  String? currentRoadName;
+
+  /// Name of the road for the next (upcoming) step, when available.
+  String? upcomingRoadName;
 }
