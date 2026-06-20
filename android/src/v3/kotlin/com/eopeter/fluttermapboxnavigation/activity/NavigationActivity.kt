@@ -159,7 +159,8 @@ class NavigationActivity : AppCompatActivity() {
                 locationMatcherResult,
                 distanceFormatterOptions
             )
-            currentSpeedLimitKmph = speedInfo?.postedSpeed?.speedKmph
+            // SpeedData.speed for the posted speed is already in km/h.
+            currentSpeedLimitKmph = speedInfo?.postedSpeed?.speed?.toInt()
             speedInfo?.let { speedInfoView.render(it) }
         }
     }

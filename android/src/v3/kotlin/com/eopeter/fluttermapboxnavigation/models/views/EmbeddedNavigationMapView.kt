@@ -214,9 +214,10 @@ class EmbeddedNavigationMapView(
         ) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
             currentSpeed = enhancedLocation.speed?.toFloat()
+            // SpeedData.speed for the posted speed is already in km/h.
             currentSpeedLimitKmph = speedInfoApi
                 .updatePostedAndCurrentSpeed(locationMatcherResult, distanceFormatterOptions)
-                ?.postedSpeed?.speedKmph
+                ?.postedSpeed?.speed?.toInt()
             lastLocation = enhancedLocation
             navigationLocationProvider.changePosition(
                 enhancedLocation,
