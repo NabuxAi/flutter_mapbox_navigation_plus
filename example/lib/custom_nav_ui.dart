@@ -243,6 +243,8 @@ class _CustomNavUiPageState extends State<CustomNavUiPage> {
     final speedKmh = p?.currentSpeed != null
         ? (p!.currentSpeed! * 3.6).round().toString()
         : '0';
+    final speedLimit =
+        p?.speedLimit != null ? '${p!.speedLimit!.round()}' : '--';
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -260,6 +262,7 @@ class _CustomNavUiPageState extends State<CustomNavUiPage> {
                   _stat('Distance', '$distKm km'),
                   _stat('Time', '$durMin min'),
                   _stat('Speed', '$speedKmh km/h'),
+                  _stat('Limit', speedLimit),
                 ],
               ),
               const SizedBox(height: 12),

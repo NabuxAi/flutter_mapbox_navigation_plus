@@ -117,6 +117,7 @@ class NavigationActivity : AppCompatActivity() {
     private var currentStyle: Style? = null
     private var hasArrived = false
     private var currentSpeed: Float? = null
+    private var currentSpeedLimitKmph: Int? = null
     private var simulate = false
     private var voiceEnabled = true
     private var speechApi: MapboxSpeechApi? = null
@@ -150,6 +151,7 @@ class NavigationActivity : AppCompatActivity() {
         override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
             val enhanced = locationMatcherResult.enhancedLocation
             currentSpeed = enhanced.speed?.toFloat()
+            currentSpeedLimitKmph = locationMatcherResult.speedLimit?.speedKmph
             navigationLocationProvider.changePosition(enhanced, locationMatcherResult.keyPoints)
             viewportDataSource.onLocationChanged(enhanced)
             viewportDataSource.evaluate()
@@ -232,7 +234,8 @@ class NavigationActivity : AppCompatActivity() {
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
                 "isPrimary" to true,
-                "currentSpeed" to currentSpeed
+                "currentSpeed" to currentSpeed,
+                "speedLimit" to currentSpeedLimitKmph
             )
         )
     }

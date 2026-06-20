@@ -151,6 +151,7 @@ class EmbeddedNavigationMapView(
     private var durationRemaining: Double? = null
     private var hasArrived = false
     private var currentSpeed: Float? = null
+    private var currentSpeedLimitKmph: Int? = null
     private var lastLocation: com.mapbox.common.location.Location? = null
     private var currentStyle: Style? = null
     private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
@@ -207,6 +208,7 @@ class EmbeddedNavigationMapView(
         ) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
             currentSpeed = enhancedLocation.speed?.toFloat()
+            currentSpeedLimitKmph = locationMatcherResult.speedLimit?.speedKmph
             lastLocation = enhancedLocation
             navigationLocationProvider.changePosition(
                 enhancedLocation,
@@ -220,7 +222,8 @@ class EmbeddedNavigationMapView(
                     "latitude" to enhancedLocation.latitude,
                     "longitude" to enhancedLocation.longitude,
                     "bearing" to enhancedLocation.bearing,
-                    "speed" to enhancedLocation.speed
+                    "speed" to enhancedLocation.speed,
+                    "speedLimit" to currentSpeedLimitKmph
                 )
             )
         }
@@ -295,7 +298,8 @@ class EmbeddedNavigationMapView(
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
                 "isPrimary" to true,
-                "currentSpeed" to currentSpeed
+                "currentSpeed" to currentSpeed,
+                "speedLimit" to currentSpeedLimitKmph
             )
         )
     }
@@ -496,7 +500,8 @@ class EmbeddedNavigationMapView(
                             "latitude" to loc.latitude,
                             "longitude" to loc.longitude,
                             "bearing" to loc.bearing,
-                            "speed" to loc.speed
+                            "speed" to loc.speed,
+                            "speedLimit" to currentSpeedLimitKmph
                         )
                     )
                 }
