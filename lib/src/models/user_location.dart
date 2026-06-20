@@ -7,13 +7,15 @@ class UserLocation {
     required this.longitude,
     this.bearing,
     this.speed,
+    this.speedLimit,
   });
 
   UserLocation.fromMap(Map<dynamic, dynamic> map)
       : latitude = (map['latitude'] as num?)?.toDouble() ?? 0.0,
         longitude = (map['longitude'] as num?)?.toDouble() ?? 0.0,
         bearing = (map['bearing'] as num?)?.toDouble(),
-        speed = (map['speed'] as num?)?.toDouble();
+        speed = (map['speed'] as num?)?.toDouble(),
+        speedLimit = (map['speedLimit'] as num?)?.toDouble();
 
   /// Latitude in degrees.
   final double latitude;
@@ -26,4 +28,7 @@ class UserLocation {
 
   /// Speed in meters per second, or null if unknown.
   final double? speed;
+
+  /// Posted speed limit in km/h, or null if unknown.
+  final double? speedLimit;
 }

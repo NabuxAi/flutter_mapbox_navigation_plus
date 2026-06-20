@@ -117,6 +117,9 @@ class NavigationActivity : AppCompatActivity() {
     private var currentStyle: Style? = null
     private var hasArrived = false
     private var currentSpeed: Float? = null
+    // iOS populates speed limit during active nav; Android wiring is a pending
+    // follow-up (exact v3 SpeedData API). Stays null for now.
+    private var currentSpeedLimitKmph: Int? = null
     private var simulate = false
     private var voiceEnabled = true
     private var speechApi: MapboxSpeechApi? = null
@@ -232,7 +235,8 @@ class NavigationActivity : AppCompatActivity() {
                 "legIndex" to routeProgress.currentLegProgress?.legIndex,
                 "stepIndex" to 0,
                 "isPrimary" to true,
-                "currentSpeed" to currentSpeed
+                "currentSpeed" to currentSpeed,
+                "speedLimit" to currentSpeedLimitKmph
             )
         )
     }

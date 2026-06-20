@@ -29,6 +29,7 @@ class RouteProgressEvent {
     this.upcomingInstruction,
     this.currentRoadName,
     this.upcomingRoadName,
+    this.speedLimit,
   });
 
   RouteProgressEvent.fromJson(Map<String, dynamic> json) {
@@ -75,6 +76,9 @@ class RouteProgressEvent {
     upcomingInstruction = json['upcomingInstruction'] as String?;
     currentRoadName = json['currentRoadName'] as String?;
     upcomingRoadName = json['upcomingRoadName'] as String?;
+    speedLimit = isNullOrZero(json['speedLimit'] as num?)
+        ? null
+        : (json['speedLimit'] as num).toDouble();
   }
 
   bool? arrived;
@@ -110,4 +114,8 @@ class RouteProgressEvent {
 
   /// Name of the road for the next (upcoming) step, when available.
   String? upcomingRoadName;
+
+  /// Posted speed limit in km/h for the current road, or null if unknown.
+  /// (Android: from the location matcher; iOS: during active navigation.)
+  double? speedLimit;
 }

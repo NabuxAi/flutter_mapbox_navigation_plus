@@ -22,6 +22,8 @@ public class MapBoxRouteProgressEvent : Codable
     let upcomingInstruction: String
     let currentRoadName: String
     let upcomingRoadName: String
+    // Posted speed limit in km/h, or 0 when unknown.
+    let speedLimit: Double
 
     init(progress: RouteProgress, currentSpeed: Double = 0.0) {
 
@@ -54,5 +56,10 @@ public class MapBoxRouteProgressEvent : Codable
         upcomingInstruction = progress.currentLegProgress.upcomingStep?.instructions ?? ""
         currentRoadName = progress.currentLegProgress.currentStep.names?.first ?? ""
         upcomingRoadName = progress.currentLegProgress.upcomingStep?.names?.first ?? ""
+        if let limit = progress.currentLegProgress.currentSpeedLimit {
+            speedLimit = limit.converted(to: .kilometersPerHour).value
+        } else {
+            speedLimit = 0
+        }
     }
 }

@@ -21,6 +21,8 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
 
     var _mapInitialized = false
     var locationManager = CLLocationManager()
+    /// Forwards free-drive/idle location updates to Dart as `location_change`.
+    var locationCancellable: AnyCancellable?
 
     // Dart-driven map markers, keyed by the caller-provided id.
     var circleAnnotationManager: CircleAnnotationManager?
@@ -198,6 +200,23 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         locationManager.requestWhenInUseAuthorization()
         // Begin passive location updates so the puck follows the user.
         nav.tripSession().startFreeDrive()
+
+        // Stream real GPS speed/position to Dart even when not navigating
+        // (free drive / idle). During active navigation the NavigationViewController
+        // delegate already emits location_change, so skip it here to avoid
+        // duplicate events.
+        locationCancellable = nav.navigation().locationMatching
+            .sink { [weak self] state in
+                guard let self = self, self._navigationViewController == nil else { return }
+                let loc = state.enhancedLocation
+                self._lastKnownLocation = loc
+                self.sendObjectEvent(eventType: "location_change", data: [
+                    "latitude": loc.coordinate.latitude,
+                    "longitude": loc.coordinate.longitude,
+                    "bearing": loc.course,
+                    "speed": max(loc.speed, 0),
+                ])
+            }
 
         if _longPressDestinationEnabled
         {

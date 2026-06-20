@@ -2,7 +2,7 @@ name: flutter_mapbox_navigation_plus
 description: >
   NabuxAi-maintained fork of flutter_mapbox_navigation_plus with embedded Mapbox
   navigation and Navigation SDK v3 support.
-version: 1.10.0
+version: 1.11.0
 repository: https://github.com/NabuxAi/flutter_mapbox_navigation_plus
 publish_to: none
 

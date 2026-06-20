@@ -1,3 +1,7 @@
+## 1.11.0
+* **Always-on real speed** — the embedded view now streams real GPS speed via `location_change` even in free drive / before navigation on **iOS** too (Android already did). Previously speed only arrived during active navigation.
+* **Real posted speed limit** — `RouteProgressEvent.speedLimit` and `UserLocation.speedLimit` (km/h) are now populated on **iOS** during active navigation (`RouteProgress.currentLegProgress.currentSpeedLimit`). The example's custom UI shows a "Limit" readout. (Android speed-limit wiring is a tracked follow-up pending the exact v3 `SpeedData` API; the field is present but stays null on Android for now.)
+
 ## 1.10.0
 * **Place search & geocoding** — a new pure-Dart `MapBoxSearch` client (no native SDK; works on Android, iOS & web):
   * `forwardGeocode` / `reverseGeocode` (Geocoding v6).
