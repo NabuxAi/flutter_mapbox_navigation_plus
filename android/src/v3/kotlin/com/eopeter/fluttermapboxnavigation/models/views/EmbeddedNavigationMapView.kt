@@ -33,6 +33,8 @@ import com.mapbox.maps.interactions.standard.generated.standardBuildings
 import com.mapbox.maps.interactions.standard.generated.standardPoi
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
+import com.mapbox.navigation.base.formatter.DistanceFormatterOptions
+import com.mapbox.navigation.tripdata.speedlimit.api.MapboxSpeedInfoApi
 import com.mapbox.navigation.base.extensions.applyLanguageAndVoiceUnitOptions
 import com.mapbox.navigation.base.options.NavigationOptions
 import com.mapbox.navigation.base.route.NavigationRoute
@@ -153,6 +155,10 @@ class EmbeddedNavigationMapView(
     private var currentSpeed: Float? = null
     private var currentSpeedLimitKmph: Int? = null
     private var lastLocation: com.mapbox.common.location.Location? = null
+    private val distanceFormatterOptions by lazy {
+        DistanceFormatterOptions.Builder(activity).build()
+    }
+    private val speedInfoApi by lazy { MapboxSpeedInfoApi() }
     private var currentStyle: Style? = null
     private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
 
@@ -208,7 +214,9 @@ class EmbeddedNavigationMapView(
         ) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
             currentSpeed = enhancedLocation.speed?.toFloat()
-            currentSpeedLimitKmph = locationMatcherResult.speedLimit?.speedKmph
+            currentSpeedLimitKmph = speedInfoApi
+                .updatePostedAndCurrentSpeed(locationMatcherResult, distanceFormatterOptions)
+                ?.postedSpeed?.speedKmph
             lastLocation = enhancedLocation
             navigationLocationProvider.changePosition(
                 enhancedLocation,

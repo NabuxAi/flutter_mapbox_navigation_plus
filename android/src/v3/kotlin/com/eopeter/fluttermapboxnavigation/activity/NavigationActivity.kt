@@ -151,15 +151,16 @@ class NavigationActivity : AppCompatActivity() {
         override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
             val enhanced = locationMatcherResult.enhancedLocation
             currentSpeed = enhanced.speed?.toFloat()
-            currentSpeedLimitKmph = locationMatcherResult.speedLimit?.speedKmph
             navigationLocationProvider.changePosition(enhanced, locationMatcherResult.keyPoints)
             viewportDataSource.onLocationChanged(enhanced)
             viewportDataSource.evaluate()
             // Speed limit / current speed indicator (the "speedometer").
-            speedInfoApi.updatePostedAndCurrentSpeed(
+            val speedInfo = speedInfoApi.updatePostedAndCurrentSpeed(
                 locationMatcherResult,
                 distanceFormatterOptions
-            )?.let { speedInfoView.render(it) }
+            )
+            currentSpeedLimitKmph = speedInfo?.postedSpeed?.speedKmph
+            speedInfo?.let { speedInfoView.render(it) }
         }
     }
 
