@@ -117,6 +117,8 @@ class NavigationActivity : AppCompatActivity() {
     private var currentStyle: Style? = null
     private var hasArrived = false
     private var currentSpeed: Float? = null
+    // iOS populates speed limit during active nav; Android wiring is a pending
+    // follow-up (exact v3 SpeedData API). Stays null for now.
     private var currentSpeedLimitKmph: Int? = null
     private var simulate = false
     private var voiceEnabled = true
@@ -155,13 +157,10 @@ class NavigationActivity : AppCompatActivity() {
             viewportDataSource.onLocationChanged(enhanced)
             viewportDataSource.evaluate()
             // Speed limit / current speed indicator (the "speedometer").
-            val speedInfo = speedInfoApi.updatePostedAndCurrentSpeed(
+            speedInfoApi.updatePostedAndCurrentSpeed(
                 locationMatcherResult,
                 distanceFormatterOptions
-            )
-            // SpeedData.speed for the posted speed is already in km/h.
-            currentSpeedLimitKmph = speedInfo?.postedSpeed?.speed?.toInt()
-            speedInfo?.let { speedInfoView.render(it) }
+            )?.let { speedInfoView.render(it) }
         }
     }
 
