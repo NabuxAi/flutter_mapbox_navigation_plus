@@ -338,8 +338,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationViewController.showsEndOfRouteFeedback = _showEndOfRouteFeedback
         _navigationViewController = navigationViewController
 
-        // Any root view controller can host the child.
-        guard let hostViewController = UIApplication.shared.delegate?.window??.rootViewController else {
+        // Any root view controller can host the child. Resolve it via the active
+        // window scene so it works under the UIScene lifecycle (FlutterSceneDelegate),
+        // where UIApplication.shared.delegate?.window is nil.
+        guard let hostViewController = UIApplication.shared.activeRootViewController else {
             result(false)
             return
         }

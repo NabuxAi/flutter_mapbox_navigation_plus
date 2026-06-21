@@ -11,6 +11,25 @@ import MapboxNavigationUIKit
 /// as a type). Pin it to the routing type used throughout the plugin.
 public typealias Waypoint = MapboxDirections.Waypoint
 
+extension UIApplication {
+    /// Resolves the host view controller under both the legacy app-delegate
+    /// window and the UIScene lifecycle. When the app adopts a
+    /// `UIWindowSceneDelegate` (e.g. Flutter's `FlutterSceneDelegate`),
+    /// `UIApplication.shared.delegate?.window` is nil, so navigation could never
+    /// find a host and silently bailed out (tour/navigation never attached).
+    /// Walk the connected scenes instead, falling back to the old path for
+    /// non-scene apps.
+    @MainActor
+    var activeRootViewController: UIViewController? {
+        let windowScenes = connectedScenes.compactMap { $0 as? UIWindowScene }
+        let activeScene = windowScenes.first { $0.activationState == .foregroundActive }
+            ?? windowScenes.first
+        let window = activeScene?.windows.first { $0.isKeyWindow }
+            ?? activeScene?.windows.first
+        return window?.rootViewController ?? delegate?.window??.rootViewController
+    }
+}
+
 /// Shared base for the full-screen plugin and the embedded platform view.
 ///
 /// Marked `@MainActor`: the v3 SDK types it drives (`MapboxNavigation`,
@@ -78,7 +97,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
             zoom: _zoom
         )
         freeDriveViewController.modalPresentationStyle = .fullScreen
-        guard let host = UIApplication.shared.delegate?.window??.rootViewController else {
+        guard let host = UIApplication.shared.activeRootViewController else {
             result(false)
             return
         }
@@ -195,7 +214,7 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         _navigationViewController = navigationViewController
         _navigationRunningNotified = false
 
-        guard let host = UIApplication.shared.delegate?.window??.rootViewController else { return }
+        guard let host = UIApplication.shared.activeRootViewController else { return }
         host.present(navigationViewController, animated: true, completion: nil)
     }
 
