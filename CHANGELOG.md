@@ -1,3 +1,6 @@
+## Unreleased
+* **Android: route line always renders** — the embedded turn-by-turn route line could be silently dropped when the route resolved before the map style finished loading (`renderRoute()` returned early on a null style and was never re-run). It is now re-drawn when the style load completes, so the line appears reliably instead of only sometimes.
+
 ## 1.11.0
 * **Always-on real speed** — the embedded view now streams real GPS speed via `location_change` even in free drive / before navigation on **iOS** too (Android already did). Previously speed only arrived during active navigation.
 * **Real posted speed limit** — `RouteProgressEvent.speedLimit` and `UserLocation.speedLimit` (km/h) are now populated on **iOS** during active navigation (`RouteProgress.currentLegProgress.currentSpeedLimit`). The example's custom UI shows a "Limit" readout. (Android speed-limit wiring is a tracked follow-up pending the exact v3 `SpeedData` API; the field is present but stays null on Android for now.)
