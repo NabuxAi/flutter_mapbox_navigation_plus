@@ -1089,6 +1089,14 @@ class EmbeddedNavigationMapView(
         mapView.mapboxMap.loadStyle(styleUri) {
             currentStyle = it
             configureStandardInteractions()
+            // If a route was already built before the style finished loading,
+            // renderRoute() bailed early (currentStyle was null) and nothing
+            // re-triggered it — leaving the route line silently missing. This
+            // race is why the line appeared only sometimes. Re-draw it now that
+            // the style is ready so the route line ALWAYS renders.
+            currentRoutes?.let { routes ->
+                if (routes.isNotEmpty()) renderRoute(routes)
+            }
             sendEvent("mapStyleLoaded")
             FlutterMapboxNavigationPlugin.sendEvent("mapStyleLoaded")
         }
