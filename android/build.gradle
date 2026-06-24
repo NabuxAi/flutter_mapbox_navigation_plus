@@ -31,8 +31,13 @@ rootProject.allprojects {
 }
 
 // Pin a stable (non release-candidate) Navigation SDK release.
-def mapboxNavigationV3Version = '3.20.0'
-def mapboxMapsV11Version = '11.16.3'
+// 3.25.0 ships libnavigator-android.so built against Common 24.25.0 / Maps
+// 11.25.0 — matching the app's forced com.mapbox.common:common-ndk27:24.25.0
+// (and mapbox_maps_flutter 2.25). Older 3.20.0 was built against Common 24.20.1,
+// so running it against the forced 24.25.0 threw UnsatisfiedLinkError
+// (missing symbol mapbox::bindgen::...::Cancelable::PlatformProxy::Ref).
+def mapboxNavigationV3Version = '3.25.0'
+def mapboxMapsV11Version = '11.25.0'
 
 android {
     namespace 'com.eopeter.fluttermapboxnavigation'
