@@ -338,6 +338,12 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationViewController.showsEndOfRouteFeedback = _showEndOfRouteFeedback
         _navigationViewController = navigationViewController
 
+        // Apply the app's custom Mapbox style to the EMBEDDED turn-by-turn map
+        // too (the full-screen path in NavigationFactory already does this). Without
+        // it, iOS embedded nav fell back to the SDK's default style while Android
+        // used mapStyleUrlDay — making the two platforms look different.
+        applyCustomStyleIfNeeded(to: navigationViewController)
+
         // Any root view controller can host the child. Resolve it via the active
         // window scene so it works under the UIScene lifecycle (FlutterSceneDelegate),
         // where UIApplication.shared.delegate?.window is nil.

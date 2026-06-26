@@ -1081,8 +1081,11 @@ class EmbeddedNavigationMapView(
 
     private fun loadInitialStyle() {
         val requestedStyle = options["mapStyleUrlDay"] as? String
+        // Prefer the app's custom Mapbox style (mapStyleUrlDay) over Style.STANDARD
+        // so the EMBEDDED nav map matches iOS (which applies the same custom style
+        // via applyCustomStyleIfNeeded). Previously, standardInteractionsEnabled
+        // forced Style.STANDARD here and the two platforms looked different.
         val styleUri = when {
-            (options["standardInteractionsEnabled"] as? Boolean) == true -> Style.STANDARD
             !requestedStyle.isNullOrBlank() -> requestedStyle
             else -> Style.STANDARD
         }
