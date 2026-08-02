@@ -1,4 +1,5 @@
 ## Unreleased
+* **Android: the ongoing navigation notification is back** — `startTripSession()` starts `NavigationNotificationService` as a foreground service, but the notification it posts comes from a module (`MapboxTripNotification`) that ships only in `com.mapbox.navigationcore:notification`, which was not a dependency. Navigation therefore ran with no notification at all: leaving the app or locking the screen mid-route left nothing to tap back into and no next instruction on the lock screen. Adding the artifact restores the standard turn-by-turn notification. (Android 13+ still needs `POST_NOTIFICATIONS`, which the host app requests.)
 * **Android: route line always renders** — the embedded turn-by-turn route line could be silently dropped when the route resolved before the map style finished loading (`renderRoute()` returned early on a null style and was never re-run). It is now re-drawn when the style load completes, so the line appears reliably instead of only sometimes.
 
 ## 1.11.0

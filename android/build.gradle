@@ -97,6 +97,17 @@ dependencies {
     implementation "com.mapbox.navigationcore:tripdata:$mapboxNavigationV3Version"
     implementation "com.mapbox.navigationcore:ui-components:$mapboxNavigationV3Version"
     implementation "com.mapbox.navigationcore:navigation:$mapboxNavigationV3Version"
+    // The ongoing turn-by-turn notification.
+    //
+    // `startTripSession()` starts NavigationNotificationService as a
+    // foreground service, but the notification it posts comes from a *module*
+    // — MapboxTripNotification, registered through
+    // Mapbox_TripNotificationModuleConfiguration — and that module ships in
+    // this artifact and nowhere else. Without it navigation ran with no
+    // notification at all: leaving the app or locking the screen mid-route
+    // left the rider nothing to tap back into and no next instruction on the
+    // lock screen, which for a phone in a bike mount is most of the route.
+    implementation "com.mapbox.navigationcore:notification:$mapboxNavigationV3Version"
     implementation "com.mapbox.maps:android:$mapboxMapsV11Version"
     // ViewTree owner extensions used to drive the bare MapView lifecycle inside
     // the Flutter PlatformView (otherwise the v11 renderer never starts -> black map).
