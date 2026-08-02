@@ -154,6 +154,17 @@ class EmbeddedNavigationMapView(
     // Posted speed limit (km/h). iOS populates this during active navigation;
     // Android wiring is pending the exact v3 SpeedData API (tracked follow-up).
     private var currentSpeedLimitKmph: Int? = null
+
+    /**
+     * Lane guidance for the manoeuvre being approached: which lanes exist, and
+     * which of them can be used to take it.
+     *
+     * Held from the banner observer rather than read off RouteProgress, because
+     * the sub-banner that carries lanes only arrives with a banner instruction —
+     * and it has to survive the progress ticks in between, which is most of them.
+     * Cleared whenever the route is.
+     */
+    private var currentLanes: List<Map<String, Any>> = emptyList()
     private var lastLocation: com.mapbox.common.location.Location? = null
     private var currentStyle: Style? = null
     private var voiceInstructionsEnabled = options["voiceInstructionsEnabled"] as? Boolean ?: true
@@ -199,7 +210,38 @@ class EmbeddedNavigationMapView(
     }
 
     private val bannerInstructionObserver = BannerInstructionsObserver { bannerInstructions ->
+        currentLanes = lanesFrom(bannerInstructions)
         sendEvent("banner_instruction", bannerInstructions.primary()?.text() ?: "")
+    }
+
+    /**
+     * The lane rows of a banner's sub-instruction, flattened for the platform
+     * channel.
+     *
+     * Each entry is one lane, left to right as it appears on the road:
+     * `directions` are the turns painted in it ("left", "straight",
+     * "slight right", …) and `active` says whether that lane can be used for
+     * the manoeuvre coming up. `activeDirection` is which of its arrows to
+     * highlight when more than one is painted.
+     *
+     * Returns empty for banners with no lane data, which is most of them —
+     * lanes only appear approaching a junction that has them.
+     */
+    private fun lanesFrom(banner: BannerInstructions?): List<Map<String, Any>> {
+        val components = banner?.sub()?.components() ?: return emptyList()
+
+        return components
+            // "lane" rather than the BannerComponents constant: this is the
+            // wire value from the Directions API and it is what the type field
+            // literally contains.
+            .filter { it.type() == "lane" }
+            .map { component ->
+                mapOf(
+                    "directions" to (component.directions() ?: emptyList<String>()),
+                    "active" to (component.active() ?: false),
+                    "activeDirection" to (component.activeDirection() ?: "")
+                )
+            }
     }
 
     private val locationObserver = object : LocationObserver {
@@ -300,7 +342,8 @@ class EmbeddedNavigationMapView(
                 "stepIndex" to 0,
                 "isPrimary" to true,
                 "currentSpeed" to currentSpeed,
-                "speedLimit" to currentSpeedLimitKmph
+                "speedLimit" to currentSpeedLimitKmph,
+                "lanes" to currentLanes
             )
         )
     }
@@ -445,6 +488,10 @@ class EmbeddedNavigationMapView(
             "clearRoute",
             "finishNavigation" -> {
                 currentRoutes = null
+                // Lanes belong to a manoeuvre on a route. Without this the last
+                // junction's strip would still be on screen when the next route
+                // starts, pointing at a turn nobody is taking.
+                currentLanes = emptyList()
                 stopSimulation()
                 MapboxNavigationApp.current()?.setNavigationRoutes(emptyList())
                 MapboxNavigationApp.current()?.stopTripSession()
@@ -951,6 +998,7 @@ class EmbeddedNavigationMapView(
 
     private fun buildRoute(call: MethodCall, result: MethodChannel.Result) {
         hasArrived = false
+        currentLanes = emptyList()
         val arguments = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
         val waypointsMap = arguments["wayPoints"] as? Map<*, *>
         val waypoints = mutableListOf<Point>()

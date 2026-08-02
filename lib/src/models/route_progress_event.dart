@@ -1,6 +1,7 @@
 // ignore_for_file: public_member_api_docs
 
 import 'package:flutter_mapbox_navigation_plus/src/helpers.dart';
+import 'package:flutter_mapbox_navigation_plus/src/models/lane_guidance.dart';
 import 'package:flutter_mapbox_navigation_plus/src/models/route_leg.dart';
 
 ///This class contains all progress information at any given time
@@ -30,6 +31,7 @@ class RouteProgressEvent {
     this.currentRoadName,
     this.upcomingRoadName,
     this.speedLimit,
+    this.lanes = const [],
   });
 
   RouteProgressEvent.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,16 @@ class RouteProgressEvent {
     speedLimit = isNullOrZero(json['speedLimit'] as num?)
         ? null
         : (json['speedLimit'] as num).toDouble();
+    // Checked rather than cast: this is parsed on every progress tick while
+    // someone is driving, and one payload in an unexpected shape must not take
+    // the whole event — position, distance, speed — down with it.
+    final rawLanes = json['lanes'];
+    lanes = rawLanes is List
+        ? rawLanes
+            .whereType<Map<dynamic, dynamic>>()
+            .map(LaneGuidance.fromJson)
+            .toList()
+        : const [];
   }
 
   bool? arrived;
@@ -118,4 +130,11 @@ class RouteProgressEvent {
   /// Posted speed limit in km/h for the current road, or null if unknown.
   /// (Android: from the location matcher; iOS: during active navigation.)
   double? speedLimit;
+
+  /// The lanes of the road ahead, left to right, and which of them can be used
+  /// for the manoeuvre being approached.
+  ///
+  /// Empty for most of a route — lanes only arrive approaching a junction that
+  /// has them — so a UI should hide the strip rather than reserve space for it.
+  List<LaneGuidance> lanes = const [];
 }
