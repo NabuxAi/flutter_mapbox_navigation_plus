@@ -2,6 +2,7 @@ export 'event_data.dart';
 export 'events.dart';
 export 'feedback.dart';
 export 'camera_position.dart';
+export 'lane_guidance.dart';
 export 'map_marker.dart';
 export 'map_shapes.dart';
 export 'navmode.dart';
