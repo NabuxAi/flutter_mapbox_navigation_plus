@@ -46,7 +46,21 @@ object MapboxOfflineManager {
         val store = TileStore.create()
         tileStore = store
         MapboxMapsOptions.tileStore = store
-        MapboxMapsOptions.tileStoreUsageMode = TileStoreUsageMode.READ_AND_UPDATE
+        // READ_ONLY, not READ_AND_UPDATE.
+        //
+        // READ_AND_UPDATE makes the renderer ask the network for whole tile
+        // *packs* rather than individual tiles, and consult only the tile store
+        // for what it already has. Anywhere the user has not downloaded a
+        // region, the map is therefore blank — and because the same store backs
+        // the routing tiles, a route through that area cannot be built either.
+        // Enabling offline support at the start of every navigation session
+        // (which is what the app does) turned that into: leave the one
+        // downloaded city and the map is empty and every route fails.
+        //
+        // READ_ONLY reads downloaded packs where they exist and falls back to
+        // ordinary per-tile network requests everywhere else, which is the
+        // hybrid behaviour offline support was supposed to add.
+        MapboxMapsOptions.tileStoreUsageMode = TileStoreUsageMode.READ_ONLY
         offlineManager = OfflineManager()
     }
 
