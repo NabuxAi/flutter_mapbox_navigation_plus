@@ -64,6 +64,8 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     var _voiceUnits = "imperial"
     var _mapStyleUrlDay: String?
     var _mapStyleUrlNight: String?
+    var _initialLatitude: Double?
+    var _initialLongitude: Double?
     var _zoom: Double = 13.0
     var _tilt: Double = 0.0
     var _bearing: Double = 0.0
@@ -296,6 +298,8 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
         _bannerEnabled = arguments?["bannerInstructionsEnabled"] as? Bool ?? true
         _mapStyleUrlDay = arguments?["mapStyleUrlDay"] as? String
         _mapStyleUrlNight = arguments?["mapStyleUrlNight"] as? String
+        _initialLatitude = arguments?["initialLatitude"] as? Double ?? _initialLatitude
+        _initialLongitude = arguments?["initialLongitude"] as? Double ?? _initialLongitude
         _zoom = arguments?["zoom"] as? Double ?? _zoom
         _bearing = arguments?["bearing"] as? Double ?? _bearing
         _tilt = arguments?["tilt"] as? Double ?? _tilt

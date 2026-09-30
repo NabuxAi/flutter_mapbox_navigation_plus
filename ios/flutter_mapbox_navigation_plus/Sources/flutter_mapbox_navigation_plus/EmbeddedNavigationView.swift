@@ -197,6 +197,18 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             navigationMapView.mapView.mapboxMap.mapStyle = MapStyle(uri: uri)
         }
 
+        // Start on the caller-provided location instead of the SDK's default
+        // world camera (centred at 0,0 — open ocean), which is what the rider
+        // saw until the first route finished building. Mirrors the Android
+        // embedded view's init block.
+        if let lat = _initialLatitude, let lng = _initialLongitude {
+            var initialCamera = CameraOptions(
+                center: CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            )
+            initialCamera.zoom = _zoom
+            navigationMapView.mapView.mapboxMap.setCamera(to: initialCamera)
+        }
+
         locationManager.requestWhenInUseAuthorization()
         // Begin passive location updates so the puck follows the user.
         nav.tripSession().startFreeDrive()
