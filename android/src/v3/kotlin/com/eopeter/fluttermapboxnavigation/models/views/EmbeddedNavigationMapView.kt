@@ -1312,13 +1312,13 @@ class EmbeddedNavigationMapView(
         // downloaded regions can serve directions without a network connection.
         com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
             .initialize(context.applicationContext)
-        val token = (options["accessToken"] as? String)?.trim()
+        // Navigation SDK v3 has no NavigationOptions.Builder.accessToken: the
+        // token is process-global (MapboxOptions.accessToken), set here before
+        // the first setup and route request.
+        com.eopeter.fluttermapboxnavigation.MapboxAccessToken.applyFrom(options)
         if (!MapboxNavigationApp.isSetup()) {
             MapboxNavigationApp.setup {
                 val builder = NavigationOptions.Builder(context.applicationContext)
-                if (!token.isNullOrBlank() && com.eopeter.fluttermapboxnavigation.MapboxAccessToken.isPublicToken(token)) {
-                    builder.accessToken(token)
-                }
                 com.eopeter.fluttermapboxnavigation.offline.MapboxOfflineManager
                     .configureRoutingTiles(builder)
                 builder.build()
