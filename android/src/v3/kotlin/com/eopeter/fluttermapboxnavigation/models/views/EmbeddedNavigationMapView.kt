@@ -124,6 +124,12 @@ class EmbeddedNavigationMapView(
         get() = savedStateRegistryController.savedStateRegistry
 
     private val root = FrameLayout(context)
+
+    // Before the MapView below: the renderer reads the token when it is created.
+    init {
+        com.eopeter.fluttermapboxnavigation.MapboxAccessToken.applyFrom(args as? Map<*, *>)
+    }
+
     private val mapView = MapView(context)
     private val channel = MethodChannel(messenger, "flutter_mapbox_navigation/$viewId")
     private val events = EventChannel(messenger, "flutter_mapbox_navigation/$viewId/events")

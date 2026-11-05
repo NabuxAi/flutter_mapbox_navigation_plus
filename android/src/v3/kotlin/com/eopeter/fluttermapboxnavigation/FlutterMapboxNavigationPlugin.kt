@@ -152,6 +152,8 @@ class FlutterMapboxNavigationPlugin : FlutterPlugin, MethodChannel.MethodCallHan
 
     /** Copy the common navigation options onto the full-screen activity intent. */
     private fun putNavExtras(intent: Intent, args: Map<*, *>) {
+        // Process-global, so setting it here covers the activity it launches.
+        MapboxAccessToken.applyFrom(args)
         intent.putExtra("simulateRoute", args["simulateRoute"] as? Boolean ?: false)
         intent.putExtra("alternatives", args["alternatives"] as? Boolean ?: false)
         intent.putExtra("enableRefresh", args["enableRefresh"] as? Boolean ?: false)
