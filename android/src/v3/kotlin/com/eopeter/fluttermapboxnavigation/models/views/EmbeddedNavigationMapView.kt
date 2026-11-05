@@ -898,6 +898,9 @@ class EmbeddedNavigationMapView(
                 }
 
                 override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
+                    for (reason in reasons) {
+                        android.util.Log.e("EmbeddedNav", "Route build failed: ${reason.message}", reason.throwable)
+                    }
                     sendEvent("route_build_failed")
                     result.success(false)
                 }
@@ -1009,10 +1012,14 @@ class EmbeddedNavigationMapView(
         val waypointsMap = arguments["wayPoints"] as? Map<*, *>
         val waypoints = mutableListOf<Point>()
 
-        waypointsMap?.values?.forEach {
-            val wp = it as? Map<*, *>
-            val lat = wp?.get("Latitude") as? Double
-            val lng = wp?.get("Longitude") as? Double
+        val sortedList = waypointsMap?.values
+            ?.mapNotNull { it as? Map<*, *> }
+            ?.sortedBy { (it["Order"] as? Number)?.toInt() ?: 0 }
+            ?: emptyList()
+
+        for (wp in sortedList) {
+            val lat = wp["Latitude"] as? Double
+            val lng = wp["Longitude"] as? Double
             if (lat != null && lng != null) {
                 waypoints.add(Point.fromLngLat(lng, lat))
             }
@@ -1066,6 +1073,9 @@ class EmbeddedNavigationMapView(
                 }
 
                 override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
+                    for (reason in reasons) {
+                        android.util.Log.e("EmbeddedNav", "Route build failed: ${reason.message}", reason.throwable)
+                    }
                     sendEvent("route_build_failed")
                     result.success(false)
                 }

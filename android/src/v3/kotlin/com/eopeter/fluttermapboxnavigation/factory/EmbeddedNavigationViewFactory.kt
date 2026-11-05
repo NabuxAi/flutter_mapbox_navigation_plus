@@ -18,6 +18,7 @@ class EmbeddedNavigationViewFactory(
     var activity: Activity
 ) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
+        com.eopeter.fluttermapboxnavigation.MapboxAccessToken.applyFrom(args as? Map<*, *>)
         return EmbeddedNavigationMapView(context, activity, messenger, viewId, args)
     }
 }
