@@ -278,6 +278,36 @@ class EmbeddedNavigationMapView(
         }
     }
 
+    /** Set just before this view stops the session itself. */
+    private var stopRequestedByFlutter = false
+
+    // The ongoing navigation notification carries an "End navigation" action
+    // that stops the trip session from outside the app. Without this the
+    // Flutter screen kept showing guidance for a session that had ended.
+    private val tripSessionStateObserver =
+        com.mapbox.navigation.core.trip.session.TripSessionStateObserver { state ->
+            if (state == com.mapbox.navigation.core.trip.session.TripSessionState.STARTED) {
+                // A stop asked for while no session ran never reports back.
+                stopRequestedByFlutter = false
+                return@TripSessionStateObserver
+            }
+            val external = !stopRequestedByFlutter && !currentRoutes.isNullOrEmpty()
+            stopRequestedByFlutter = false
+            if (!external) return@TripSessionStateObserver
+            currentRoutes = null
+            currentLanes = emptyList()
+            stopSimulation()
+            MapboxNavigationApp.current()?.setNavigationRoutes(emptyList())
+            clearRouteLine()
+            navigationCamera.requestNavigationCameraToIdle()
+            sendEvent("navigation_cancelled")
+        }
+
+    private fun stopTripSessionFromFlutter() {
+        stopRequestedByFlutter = true
+        MapboxNavigationApp.current()?.stopTripSession()
+    }
+
     private val arrivalObserver = object : ArrivalObserver {
         override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
             hasArrived = true
@@ -412,6 +442,7 @@ class EmbeddedNavigationMapView(
     override fun dispose() {
         navigationCamera.requestNavigationCameraToIdle()
         MapboxNavigationApp.current()?.unregisterArrivalObserver(arrivalObserver)
+        MapboxNavigationApp.current()?.unregisterTripSessionStateObserver(tripSessionStateObserver)
         MapboxNavigationApp.current()?.unregisterLocationObserver(locationObserver)
         MapboxNavigationApp.current()?.unregisterRouteProgressObserver(routeProgressObserver)
         MapboxNavigationApp.current()?.unregisterVoiceInstructionsObserver(voiceInstructionObserver)
@@ -419,7 +450,7 @@ class EmbeddedNavigationMapView(
         MapboxNavigationApp.current()?.unregisterOffRouteObserver(offRouteObserver)
         MapboxNavigationApp.current()?.unregisterRoutesObserver(routesObserver)
         stopSimulation()
-        MapboxNavigationApp.current()?.stopTripSession()
+        stopTripSessionFromFlutter()
         // Mirror the attach() in initializeNavigationSdk so the navigation app
         // releases this view's lifecycle owner instead of leaking it.
         MapboxNavigationApp.detach(this)
@@ -500,7 +531,7 @@ class EmbeddedNavigationMapView(
                 currentLanes = emptyList()
                 stopSimulation()
                 MapboxNavigationApp.current()?.setNavigationRoutes(emptyList())
-                MapboxNavigationApp.current()?.stopTripSession()
+                stopTripSessionFromFlutter()
                 viewportDataSource.clearRouteData()
                 viewportDataSource.evaluate()
                 navigationCamera.requestNavigationCameraToIdle()
@@ -521,7 +552,7 @@ class EmbeddedNavigationMapView(
             }
             "stopNavigation" -> {
                 stopSimulation()
-                MapboxNavigationApp.current()?.stopTripSession()
+                stopTripSessionFromFlutter()
                 sendEvent("navigation_cancelled")
                 result.success(true)
             }
@@ -1314,6 +1345,8 @@ class EmbeddedNavigationMapView(
 
         MapboxNavigationApp.current()
             ?.registerArrivalObserver(arrivalObserver)
+        MapboxNavigationApp.current()
+            ?.registerTripSessionStateObserver(tripSessionStateObserver)
         MapboxNavigationApp.current()
             ?.registerLocationObserver(locationObserver)
         MapboxNavigationApp.current()
