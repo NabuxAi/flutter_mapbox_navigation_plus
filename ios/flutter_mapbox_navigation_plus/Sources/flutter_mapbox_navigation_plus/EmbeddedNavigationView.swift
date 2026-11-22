@@ -212,6 +212,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         locationManager.requestWhenInUseAuthorization()
         // Begin passive location updates so the puck follows the user.
         nav.tripSession().startFreeDrive()
+        applyStreetLevelCamera(to: navigationMapView)
 
         // Stream real GPS speed/position to Dart even when not navigating
         // (free drive / idle). During active navigation the NavigationViewController
@@ -266,6 +267,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         sendEvent(eventType: .route_building)
 
         parseFlutterArguments(arguments: arguments)
+        applyStreetLevelCamera(to: navigationMapView)
 
         guard let locations = getLocationsFromFlutterArgument(arguments: arguments) else {
             flutterResult(false)
@@ -368,8 +370,29 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         navigationViewController.view.translatesAutoresizingMaskIntoConstraints = false
         constraintsWithPaddingBetween(holderView: self.navigationMapView, topView: navigationViewController.view, padding: 0.0)
         navigationViewController.didMove(toParent: hostViewController)
+        applyStreetLevelCamera(to: navigationViewController.navigationMapView)
         _navigationRunningNotified = false
         result(true)
+    }
+
+    /// A street-level following camera: pitched towards the horizon and close
+    /// enough that a walker's own steps move the map. The SDK defaults (45°,
+    /// zoom 10.5–16.35, flattening to 0° near every manoeuvre) read as a map seen
+    /// from above, and on foot the camera spent most of the walk flat. Mirrors
+    /// `applyFollowingFrame` in the Android embedded view.
+    private func applyStreetLevelCamera(to mapView: NavigationMapView?) {
+        guard let dataSource = mapView?.navigationCamera.viewportDataSource as? MobileViewportDataSource else {
+            return
+        }
+        var options = dataSource.options
+        options.followingCameraOptions.defaultPitch = _tilt > 0 ? min(_tilt, 85) : 60
+        options.followingCameraOptions.pitchNearManeuver.enabled = false
+        switch _navigationMode {
+        case "walking": options.followingCameraOptions.zoomRange = 16.5...18.0
+        case "cycling": options.followingCameraOptions.zoomRange = 15.5...17.5
+        default: options.followingCameraOptions.zoomRange = 14.0...17.0
+        }
+        dataSource.options = options
     }
 
     /// Append one or more intermediate stops to the route currently shown or

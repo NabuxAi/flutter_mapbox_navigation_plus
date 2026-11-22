@@ -58,6 +58,8 @@ import com.mapbox.navigation.voice.model.SpeechError
 import com.mapbox.navigation.voice.options.MapboxSpeechApiOptions
 import com.mapbox.navigation.voice.options.VoiceInstructionsPlayerOptions
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
+import com.mapbox.navigation.ui.maps.puck.LocationPuckOptions
+import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi
 import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
@@ -1072,6 +1074,8 @@ class EmbeddedNavigationMapView(
             ?.mapNotNull { it as? String }
             ?.filter { it.isNotBlank() }
 
+        applyFollowingFrame(arguments["mode"] as? String ?: this.options["mode"] as? String)
+
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions(navigationProfile(arguments))
             .applyLanguageAndVoiceUnitOptions(activity)
@@ -1281,10 +1285,29 @@ class EmbeddedNavigationMapView(
                 24.0 * density
             )
         }
-        viewportDataSource.options.followingFrameOptions.defaultPitch =
-            options["tilt"] as? Double ?: 58.0
-        viewportDataSource.options.followingFrameOptions.maxZoom =
-            options["zoom"] as? Double ?: 16.3
+        applyFollowingFrame(options["mode"] as? String)
+    }
+
+    /**
+     * A street-level following camera: pitched towards the horizon and close
+     * enough that a walker's own steps move the map.
+     *
+     * The SDK defaults (45° pitch, zoom 10.5–16.35, flattening to 0° near every
+     * manoeuvre) read as a map seen from above, and on foot — a manoeuvre every
+     * few dozen metres — the camera spent most of the walk flat.
+     */
+    private fun applyFollowingFrame(mode: String?) {
+        val frame = viewportDataSource.options.followingFrameOptions
+        frame.defaultPitch = options["tilt"] as? Double ?: 60.0
+        frame.pitchNearManeuvers.enabled = false
+        val (minZoom, maxZoom) = when (mode) {
+            "walking" -> 16.5 to 18.0
+            "cycling" -> 15.5 to 17.5
+            else -> 14.0 to 17.0
+        }
+        frame.minZoom = minZoom
+        frame.maxZoom = maxZoom
+        viewportDataSource.evaluate()
     }
 
     private fun focusRoute(routes: List<NavigationRoute>) {
@@ -1338,9 +1361,14 @@ class EmbeddedNavigationMapView(
         // Set up location provider & location puck/movement icon
         mapView.location.setLocationProvider(navigationLocationProvider)
         mapView.location.enabled = true
+        // The navigation arrow, turned to the direction of travel. The default
+        // puck was a bare dot that never showed which way the rider faced.
         mapView.location.updateSettings {
             enabled = true
-            pulsingEnabled = true
+            pulsingEnabled = false
+            locationPuck = LocationPuckOptions.Builder.navigationPuck(context)
+            puckBearingEnabled = true
+            puckBearing = PuckBearing.COURSE
         }
 
         MapboxNavigationApp.current()
